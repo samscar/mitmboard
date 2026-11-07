@@ -4,7 +4,7 @@
 
 **Spec:** ../spec.md
 
-**Blocked by:** 01 — 前置修复：`-s` 参数与 mitmproxy 版本
+**Blocked by:** 01 — 前置修复：把 mitmproxy 钉到精确版本
 
 **Status:** ready-for-agent
 

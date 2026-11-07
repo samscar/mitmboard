@@ -2,7 +2,7 @@ Status: ready-for-agent
 
 # Mitmboard 界面交互向 Charles 对齐，并补全 Map Local
 
-术语以根目录 `CONTEXT.md` 为准：**Map Local**、**断点**、**直通**、**Structure 视图**、**Sequence 视图**、**Focus**、**设备**。范围与验收清单见 `docs/v1-scope.md` 的「界面交互原则」。
+术语以根目录 `CONTEXT.md` 为准：**Map Local**、**断点**、**直通**、**Structure 视图**、**Sequence 视图**、**Focus**、**Other Hosts**、**设备**、**托管文件**、**命中**。范围与验收清单见 `docs/v1-scope.md` 的「界面交互原则」。
 
 ## Problem Statement
 
@@ -20,9 +20,9 @@ Status: ready-for-agent
 功能范围不变（仍是 v1 的四个动作），交互风格全面对齐用户正在使用的 Charles 5.2.2：
 
 - 布局改为「左边树、右边详情」。树面板顶部切换 Structure / Sequence，底部是过滤框；设备栏、Devices 页和 Dashboard 页移除。
-- 在请求行、目录、host 上右键即可 Focus、建 Map Local 规则、复制 URL 或 cURL、重放、编辑后重发。
+- 在请求行、目录、host 上右键即可建 Map Local 规则；在请求行或 host 上右键即可 Focus；另有复制 URL 或 cURL、重放、编辑后重发。
 - Map Local 有完整的前端：规则列表弹窗、预填好的规则对话框、文件上传，以及「把这条已捕获的响应存成文件并映射」。命中的请求在列表里有 `MAPPED` 徽标，在详情的 Notes 里写明命中的文件。
-- 详情页改为 Overview / Contents / Summary / Chart / Notes。Contents 上下分屏；选中 host 或目录时显示该节点的汇总。
+- 详情页改为 Overview / Contents / Summary / Notes；Chart 只出现在节点汇总，请求级不做时间线图。Contents 上下分屏；选中 host 或目录时显示该节点的汇总。
 - Focus 采用 Charles 的做法：被关注的节点置顶，其余收进 Other Hosts。
 - 键盘可以完成切换选中、折叠展开、聚焦过滤框、清除 Focus 或选中。
 
@@ -82,18 +82,18 @@ Status: ready-for-agent
 ## Implementation Decisions
 
 **前置修复（动工前）**：
-- 修复命令行入口：用户一传 `-s`，Mitmboard 自身的 addon 就不加载，界面消失。
-- 把 `mitmproxy` 依赖从 `>=11` 钉到具体版本。
-- 两项均已记录在 v1-scope，不属于本 spec 的新增决策，但必须先完成。
+- 修复命令行入口：用户一传 `-s`，Mitmboard 自身的 addon 就不加载，界面消失。（已由 `9d00811` 修复，无需重做。）
+- 把 `mitmproxy` 依赖从 `>=12.3,<13` 的范围约束钉到具体版本。
+- 两项均已记录在 v1-scope，不属于本 spec 的新增决策；其中钉版本仍须先完成。
 
 **后端：Map Local**
 - 规则模型保持现有字段（启用、host、path、method、文件、状态码）。匹配仍是「先命中者胜、通配、忽略 query、大小写不敏感」。
-- 流的元数据新增「命中的 Map Local 规则 id」字段，未命中为空；列表接口和单条详情接口都返回它。addon 在命中时写入。
+- 流的元数据新增两个字段：命中的 Map Local 规则 id，以及命中时该规则指向的文件路径快照；未命中时都为空。列表接口和单条详情接口都返回它们。addon 在命中时写入，命中是这条流的一次性历史事实：规则之后被删除、停用或改指向别的文件，已有的命中标记与路径快照都不撤销。规则指向的文件缺失而返回的 500 同样写入这两个字段，因为它确实由规则触发。
 - 文件缺失或不可读时，仍返回可见的 500，不放行。
 - 新增上传接口，接收浏览器上传的文件，写入 `~/.mitmboard/maplocal/`，文件名为内容哈希加扩展名，返回最终的服务端路径；相同内容去重。
 - 新增「把已捕获的响应存成文件」接口：以流 id 为输入，把响应体写入同一托管目录，扩展名按响应的 Content-Type 推断，返回路径。二进制响应同样支持。
-- 单个托管文件上限 20 MB；超限返回 422，错误信息提示改用手输路径。
-- 保存规则（整体 PUT）时，清理托管目录中不再被任何规则引用的文件。托管目录之外的手输路径永远不被清理。
+- 单个托管文件上限 20 MB，约束上传与「存为文件」两条写入路径；超限返回 422，提示改用手输路径。手输路径指向的本机文件不受此限制——它不进入托管目录，也就不在托管目录的管辖内。
+- 保存规则（整体 PUT）时，清理托管目录中不再被任何规则引用的文件，但最近 10 分钟内写入的文件受 TTL 保护。托管目录之外的手输路径永远不被清理。
 - 现有的规则读写接口和 `maplocal.update` 广播事件保持不变，前端开始订阅。
 
 **前端：过滤**（过滤表达式在前端解析，不涉及后端）
@@ -108,21 +108,22 @@ Status: ready-for-agent
 - 顶栏已有的「N passthrough」标签改为可点击，打开直通弹窗，列出主机、状态与 Retry。
 
 **前端：右键菜单**
-- 请求行、Structure 的目录与 host 节点都有右键菜单。请求行菜单项：Map Local…、Focus、Copy URL、Copy cURL、Replay、Edit & Resend。目录与 host：Map Local…、Focus。断点与直通的位置预留，本批不接。
+- 请求行、Structure 的目录与 host 节点都有右键菜单。请求行菜单项：Map Local…、Focus（作用于该请求所属的 host）、Copy URL、Copy cURL、Replay、Edit & Resend。目录：Map Local…。host：Map Local…、Focus。断点与直通的位置预留，本批不接。
 - 对已命中 Map Local 的请求，「Map Local…」替换为「编辑 Map Local 规则…」和「停用该规则」。
 - 详情页保留对应按钮作为不依赖右键的备用入口。
 
 **前端：Map Local 界面**
 - 顶栏 Map Local 入口样式与现有 Breakpoints 一致，带生效指示点。点开是规则列表弹窗：总开关、每条规则的启用勾选、编辑、删除、上移、下移。
-- 规则对话框（弹窗里新增、右键创建、编辑共用同一个）字段：host、path、method、状态码，以及文件来源二选一：「使用已捕获的响应」或「上传文件…」。状态码默认取已捕获响应的状态码。对话框里有「query 参数不参与匹配」的提示。
+- 规则对话框（弹窗里新增、右键创建、编辑共用同一个）字段：host、path、method、状态码，以及一个可编辑的「文件路径」字段。该字段旁边是「选择文件…」：浏览器环境把选中文件上传到托管目录后回填路径，桌面环境直接选本机文件。「使用已捕获的响应」是一个便捷按钮——先把该响应存成托管文件，再把路径填进同一个字段，不构成第二种存储形态。状态码默认取已捕获响应的状态码；从目录或 host 右键进入时默认 200，且「使用已捕获的响应」置灰。对话框里有「query 参数不参与匹配」的提示。
 - 预填粒度：请求行为精确 host、精确 path（去掉 query）、该请求的 method；目录为 host 加 `该目录/*`、method 为 any；host 为只填 host。
 - 新建规则插到列表最前。
 - 前端订阅 `maplocal.update`，多个浏览器标签页之间状态一致。
 
 **前端：Focus**
-- 采用 Charles 的方式：Structure 视图中被 Focus 的节点置顶，其余 host 收进 Other Hosts 文件夹；Sequence 视图提供 Focused 开关。
-- 官方文档只定义了对 host 的 Focus，目录级 Focus 是我们的扩展。
-- Focus 与过滤框的查询取交集；取消 Focus 即回到完整视图。
+- 采用 Charles 的方式：Structure 视图中被 Focus 的 host 置顶，其余 host 收进 Other Hosts 文件夹；Sequence 视图提供 Focused 开关。
+- Focus 只作用于 host，与 Charles 官方定义一致；目录级 Focus 不在本批，见 Out of Scope。
+- Focus 是多目标集合：可以同时关注多个 host，各自置顶；Other Hosts 收的是全部未关注的 host。这与 Charles 的 `Focused Hosts…` 列表一致。
+- Focus 与过滤框的查询取交集；取消 Focus 即回到完整视图；Esc 一次清除全部 Focus，再按一次清除选中。
 
 **前端：树与键盘**
 - 单击 host 或目录是选中节点，小三角和 ←→ 负责折叠展开。
@@ -130,9 +131,9 @@ Status: ready-for-agent
 - 暂停中的请求在树和列表里的现有呈现保持不变。
 
 **前端：详情页**
-- 选中请求时，标签栏上方显示 `METHOD URL → 状态码`。标签为 Overview、Contents、Summary、Chart、Notes，不做 SSL 标签。
+- 选中请求时，标签栏上方显示 `METHOD URL → 状态码`。标签为 Overview、Contents、Summary、Notes；Summary 复用现有 `Timing` 相位表，只改标签名。不做 SSL 标签，也不做请求级 Chart。
 - Contents 上下分屏：上为请求，下为响应，各自有子标签。请求侧：Headers、Query String、Cookies、Text、JSON、Raw；响应侧：Headers、Text、JSON、Raw。不做 Hex、JavaScript、Compressed。
-- Overview 中把原来的「Client」行改名为「Device」。Notes 显示 Map Local 命中信息，格式为「Mapped to local file: …」。
+- Overview 中把原来的「Client」行改名为「Device」。Notes 显示 Map Local 命中信息，格式为「Mapped to local file: …」；命中的规则已被删除时，改为显示「Mapped to local file: …（rule deleted）」，文件名取自命中时写入的快照，不留空白。
 - 选中 host 或目录时，右侧是该节点的 Overview、Summary、Chart。Summary 复用现有的统计函数（请求数、状态分布、总流量、平均耗时与 P95），Chart 复用现有的状态分布条形图。Chart 的优先级最低，可在 Summary 之后交付。
 - 暂停请求的内联编辑器不受影响，仍在选中暂停请求时显示。
 
@@ -142,12 +143,12 @@ Status: ready-for-agent
 
 **接缝 1：后端 HTTP API（`make_app` + `TestClient`）**
 - 先例：现有 API 测试与 addon 测试。
-- 覆盖：上传（含去重、超限拒绝）、「存为文件」（含扩展名推断、二进制响应）、规则读写与先命中者胜的顺序、保存规则时的托管文件清理（以及手输路径不被清理）、命中标记经 addon 写入后由 `/api/flows` 返回。
+- 覆盖：上传（含去重、超限拒绝）、「存为文件」（含扩展名推断、二进制响应与 20 MB 上限）、规则读写与先命中者胜的顺序、保存规则时的托管文件清理（含 10 分钟 TTL 保护、手输路径不被清理）、命中标记经 addon 写入后由 `/api/flows` 返回。
 - 不新增对 Map Local 引擎内部函数的单测，现有引擎测试保持不动。
 
 **接缝 2：前端整个 `App` 的渲染（vitest + testing-library，mock 掉 `api`）**
 - 先例：现有 `App` 级与组件级前端测试的 mock 写法。
-- 按用户可见行为断言：右键菜单项与预填值、规则弹窗与对话框的操作、`MAPPED` 徽标、Focus 前后树的变化、Contents 分屏及子标签、节点汇总、键盘导航（含快速连按只保留最后一次）、直通弹窗、过滤框位置，以及 `device:` 与 `client:` 过滤的等价性和自动补全。
+- 按用户可见行为断言：右键菜单项与预填值、规则弹窗与对话框的操作、`MAPPED` 徽标、Focus 前后树的变化（含同时关注多个 host）、Contents 分屏及子标签、节点汇总、键盘导航（含快速连按只保留最后一次）、直通弹窗、过滤框位置，以及 `device:` 与 `client:` 过滤的等价性和自动补全。
 - 设备栏、Devices 页、Dashboard 页相关的旧测试随功能移除而删除或改写。
 
 **Playwright 冒烟**：不新增场景，只跟随布局变化修正选择器（例如过滤框移到树面板底部）。mock 服务器没有真实的 Map Local 行为，不扩展。
@@ -159,6 +160,9 @@ Status: ready-for-agent
 - 录制开关（需要后端支持暂停捕获）。
 - Map Remote、Rewrite、弱网模拟、Compose、DNS Spoofing、Mirror、Block List 等 v1-scope 已列明的 Charles 能力。
 - 目录映射、UI 内联编辑响应体、query 匹配。
+- 请求级 Chart：Charles 的 Chart 是时间线图，需要「相关请求」这层关系数据，后端完全没有，成本与收益不匹配。请求详情因此只有 Overview、Contents、Summary、Notes 四个标签。
+- 目录级 Focus：Charles 只对 host 提供 Focus，本批不做扩展。
+- 同一出口 IP 的多台设备的区分：分流器落地前无法做到，`device:` 只能按 IP 与 UA 推导的名称筛。
 - 分流器与下游代理（代码中尚未实现，也不在 v1 范围）。
 - SSL 标签，以及 Hex、JavaScript、Compressed 子标签。
 - 设备手动改名的前端入口。

@@ -1,16 +1,16 @@
 # 08 — 树的选中语义与键盘导航
 
-**What to build:** Structure 视图中单击 host 或目录是选中该节点，小三角和 ←→ 键负责折叠展开，与 Charles 一致。键盘可以完成浏览：↑↓ 切换选中并立即加载详情（快速连按只保留最后一次）、⌘/Ctrl+F 聚焦过滤框、Esc 清除选中。Sequence 视图同样支持 ↑↓。
+**What to build:** Structure 视图中单击 host 或目录是选中该节点，小三角和 ←→ 键负责折叠展开，与 Charles 一致。键盘可以完成浏览：↑↓ 切换选中并立即加载详情（快速连按只保留最后一次）、⌘/Ctrl+F 聚焦过滤框、Esc 清除选中（存在 Focus 时先把 Esc 交给票 09，由它优先清 Focus）。Sequence 视图同样支持 ↑↓。
 
 **Spec:** ../spec.md
 
-**Blocked by:** 01 — 前置修复：`-s` 参数与 mitmproxy 版本
+**Blocked by:** 01 — 前置修复：把 mitmproxy 钉到精确版本
 
 **Status:** ready-for-agent
 
 - [ ] 单击节点不再折叠，只选中；小三角与 ←→ 折叠展开
 - [ ] ↑↓ 在两种视图里切换选中并加载详情
 - [ ] 快速连按 ↑↓ 后，详情显示的是最后选中的请求
-- [ ] ⌘/Ctrl+F 聚焦过滤框；Esc 清除选中
+- [ ] ⌘/Ctrl+F 聚焦过滤框；无 Focus 时 Esc 清除选中
 - [ ] 暂停中的请求的现有呈现不受影响
 - [ ] 前端 `App` 级测试覆盖

@@ -15,7 +15,7 @@ Proxino（fork 后更名为 Mitmboard）已经具备断点、重放、WebSocket 
 ## Consequences
 
 - 上游最后一次提交是 2026-09-12，之后无活动。本项目承接全部演进，不再期待上游修复。
-- 动工前必须修 `mitmboard/cli.py` 的 `-s` 逻辑：只要传入任何 `-s`，它就不再加载自身 addon，界面会直接消失。
-- 必须把 `mitmproxy` 依赖从 `>=11` 钉到具体版本，避免 addon API 漂移。
+- 动工前必须修 `mitmboard/cli.py` 的 `-s` 逻辑：只要传入任何 `-s`，它就不再加载自身 addon，界面会直接消失。（已由 commit `9d00811` 修复，此处保留为历史记录。）
+- 必须把 `mitmproxy` 依赖从 `>=11` 钉到具体版本，避免 addon API 漂移。（已收敛为 `>=12.3,<13`，仍待钉到精确版本，见票 01。）
 - Map Local 与 Structure 视图需要同时改 Python 侧（addon、server、config）与 `web/` 前端，不只是一处。
 - 项目已更名为 Mitmboard，包名、CLI、配置目录（`~/.mitmboard`，首次启动从 `~/.proxino` 迁移）与桌面标识同步变更；MIT 归属通过 `LICENSE` + `NOTICE` 保留。

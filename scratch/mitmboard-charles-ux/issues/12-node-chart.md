@@ -1,6 +1,6 @@
 # 12 — 节点 Chart
 
-**What to build:** 节点详情增加 Chart 标签，用现有 Dashboard 页的状态分布条形图展示该节点下的请求分布。优先级最低，可在 Summary 之后随时交付。
+**What to build:** 节点详情增加 Chart 标签，复用 `DashboardView` 里的状态分布条形图展示该节点下的请求分布（Dashboard 页在票 15 移除时把这张图抽成独立组件）。优先级最低，可在 Summary 之后随时交付。请求级的 Chart 不在本批——Charles 的请求 Chart 是时间线图，依赖后端没有的「相关请求」关系。
 
 **Spec:** ../spec.md
 
