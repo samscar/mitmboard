@@ -15,6 +15,8 @@ const QUICK: { label: string; q: string }[] = [
 export function FilterBar() {
   const query = useStore((s) => s.query);
   const setQuery = useStore((s) => s.setQuery);
+  const listMode = useStore((s) => s.listMode);
+  const setListMode = useStore((s) => s.setListMode);
   const [focused, setFocused] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
@@ -70,6 +72,12 @@ export function FilterBar() {
       )}
       <button className="chip" aria-label="Filter syntax help" onClick={() => setShowHelp((v) => !v)}>?</button>
       {showHelp && <DslHelp />}
+      <div className="seg listmode" role="group" aria-label="List layout">
+        <button className={"seg-item" + (listMode === "sequence" ? " active" : "")}
+                onClick={() => setListMode("sequence")}>Sequence</button>
+        <button className={"seg-item" + (listMode === "structure" ? " active" : "")}
+                onClick={() => setListMode("structure")}>Structure</button>
+      </div>
     </div>
   );
 }

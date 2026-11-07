@@ -3,9 +3,19 @@ import type { FlowMeta, FlowDetail, PassthroughHost, WsMessage, Breakpoints, Pau
 import { parseQuery } from "./filters/dsl";
 
 export type View = "inspector" | "devices" | "dashboard";
+export type ListMode = "sequence" | "structure";
 
 const DETAIL_WIDTH_KEY = "proxino.detailWidth";
+const LIST_MODE_KEY = "proxino.listMode";
 const DEFAULT_DETAIL_WIDTH = 420;
+
+function loadListMode(): ListMode {
+  try {
+    return localStorage.getItem(LIST_MODE_KEY) === "structure" ? "structure" : "sequence";
+  } catch {
+    return "sequence";
+  }
+}
 
 function clampDetailWidth(n: number): number {
   const max = Math.max(320, window.innerWidth * 0.6);
@@ -32,12 +42,14 @@ interface State {
   query: string;
   clientIp: string | null;
   view: View;
+  listMode: ListMode;
   passthrough: PassthroughHost[];
   detailWidth: number;
   wsMessages: Record<string, WsMessage[]>;
   breakpoints: Breakpoints;
   paused: Record<string, PausedEntry>;
   setView: (v: View) => void;
+  setListMode: (m: ListMode) => void;
   upsertFlow: (f: FlowMeta) => void;
   setQuery: (q: string) => void;
   selectClient: (ip: string | null) => void;
@@ -59,12 +71,16 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   flows: new Map(), order: [], selectedId: null, detail: null,
-  query: "", clientIp: null, view: "inspector", passthrough: [],
+  query: "", clientIp: null, view: "inspector", listMode: loadListMode(), passthrough: [],
   detailWidth: loadDetailWidth(),
   wsMessages: {},
   breakpoints: { enabled: false, rules: [] },
   paused: {},
   setView: (view) => set({ view }),
+  setListMode: (listMode) => {
+    try { localStorage.setItem(LIST_MODE_KEY, listMode); } catch { /* ignore */ }
+    set({ listMode });
+  },
   setPassthrough: (passthrough) => set({ passthrough }),
   setDetailWidth: (n) => {
     const detailWidth = clampDetailWidth(n);

@@ -1080,3 +1080,39 @@ body.in-tauri .topbar { padding-left: 82px; }
 .wsm-body { grid-column: 1 / -1; }
 .wsm-body pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto;
   font-size: 12px; padding: 8px 0 0; }
+
+/* ---- Structure view (Charles-style host/path tree) ---- */
+.listmode { margin-left: auto; flex: 0 0 auto; }
+.stree { flex: 1; min-width: 0; overflow-y: auto; background: var(--base); }
+.stree-head {
+  position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; background: var(--base); border-bottom: 1px solid var(--border);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: var(--muted);
+  text-transform: uppercase;
+}
+.stree-head-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stree-act {
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--sec); font-size: 10px; padding: 2px 8px; cursor: pointer; white-space: nowrap;
+}
+.stree-act:hover { border-color: #33344f; background: #212736; color: var(--text); }
+.stree-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 14px;
+  cursor: default; user-select: none; font-size: 12.5px;
+}
+.stree-row:hover { background: var(--panel); }
+.stree-row.selected { background: var(--panel2); box-shadow: inset 2px 0 0 var(--brand); }
+.stree-folder { cursor: pointer; }
+.stree-host { padding-top: 8px; }
+.stree-caret { width: 12px; flex: 0 0 12px; text-align: center; color: var(--sec); font-size: 11px; line-height: 1; }
+.stree-caret.leaf { color: var(--border); }
+.stree-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: "JetBrains Mono", ui-monospace, monospace; color: var(--sec);
+}
+.stree-host .stree-name { color: var(--text); font-weight: 600; }
+.stree-leaf .stree-name { color: var(--text); }
+.stree-count { color: var(--muted); font-size: 11px; flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.stree-method { flex: 0 0 46px; font-size: 10.5px; font-weight: 700; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.stree-status { flex: 0 0 34px; font-size: 11px; text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.stree-size { flex: 0 0 62px; color: var(--muted); font-size: 11px; text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; }

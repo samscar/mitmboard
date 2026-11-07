@@ -1,16 +1,11 @@
 import { useStore } from "../store";
 import { fetchDetail } from "../api";
-import { bytes, typeLabel } from "../format";
+import { bytes, methodColor, statusColor, typeLabel } from "../format";
 import type { FlowDetail, FlowMeta } from "../types";
-
-const methodColor: Record<string, string> = {
-  GET: "#34D399", POST: "#FBBF24", PUT: "#60A5FA", DELETE: "#F87171", PATCH: "#A78BFA",
-};
-const statusColor = (s?: number) =>
-  !s ? "#626C7E" : s >= 500 ? "#F87171" : s >= 400 ? "#FB923C" : s >= 300 ? "#60A5FA" : "#34D399";
 
 export function FlowTable() {
   const paused = useStore((s) => s.paused);
+  const total = useStore((s) => s.flows.size);
   const pausedFlows = useStore((s) => s.pausedFlows());
   const rows = useStore((s) => s.visibleFlows()).filter((f) => !(f.id in paused));
   const selectedId = useStore((s) => s.selectedId);
@@ -42,7 +37,7 @@ export function FlowTable() {
         </>
       )}
       {rows.length === 0 && pausedFlows.length === 0 ? (
-        <div className="empty">Waiting for traffic…</div>
+        <div className="empty">{total > 0 ? "No requests match the filter" : "Waiting for traffic…"}</div>
       ) : rows.map((f) => (
         <div key={f.id} role="row" className={"flowrow" + (f.id === selectedId ? " selected" : "")}
              onClick={() => onClick(f)}>

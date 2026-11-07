@@ -5,8 +5,7 @@ export function bytes(n: number | undefined | null): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Short resource-type label derived from a Content-Type header. */
-export function typeLabel(ct?: string | null): string {
+/** Short resource-type label derived from a Content-Type header. */export function typeLabel(ct?: string | null): string {
   if (!ct) return "—";
   const c = ct.toLowerCase();
   if (c.includes("json")) return "json";
@@ -27,4 +26,18 @@ export function clockTime(ms?: number | null): string {
   const d = new Date(ms);
   const p = (n: number, l = 2) => String(n).padStart(l, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
+/** Colour for an HTTP method label. */
+export const methodColor: Record<string, string> = {
+  GET: "#34D399", POST: "#FBBF24", PUT: "#60A5FA", DELETE: "#F87171", PATCH: "#A78BFA",
+};
+
+/** Colour for a status code dot or label. */
+export function statusColor(status?: number | null): string {
+  if (!status) return "#626C7E";
+  if (status >= 500) return "#F87171";
+  if (status >= 400) return "#FB923C";
+  if (status >= 300) return "#60A5FA";
+  return "#34D399";
 }

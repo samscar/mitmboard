@@ -3,6 +3,7 @@ import { TopBar } from "./components/TopBar";
 import { FilterBar } from "./components/FilterBar";
 import { ClientsSidebar } from "./components/ClientsSidebar";
 import { FlowTable } from "./components/FlowTable";
+import { StructureTree } from "./components/StructureTree";
 import { DetailPane } from "./components/DetailPane";
 import { StatusBar } from "./components/StatusBar";
 import { EmptyState } from "./components/EmptyState";
@@ -25,6 +26,7 @@ export function App() {
   const addPaused = useStore((s) => s.addPaused);
   const removePaused = useStore((s) => s.removePaused);
   const view = useStore((s) => s.view);
+  const listMode = useStore((s) => s.listMode);
   const isEmpty = useStore((s) => s.flows.size === 0);
   const detailWidth = useStore((s) => s.detailWidth);
   const setDetailWidth = useStore((s) => s.setDetailWidth);
@@ -104,7 +106,7 @@ export function App() {
             <ClientsSidebar />
             {isEmpty ? <EmptyState onConnect={() => setShowConnect(true)} /> : (
               <>
-                <FlowTable />
+                {listMode === "structure" ? <StructureTree /> : <FlowTable />}
                 <div
                   className="splitter"
                   role="separator"
