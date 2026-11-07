@@ -20,15 +20,23 @@ def test_passthrough_keeps_user_mitmdump_args():
     assert out[:2] == ["--set", "termlog_verbosity=warn"]
     assert "-q" in out and "-s" in out and "-p" in out
 
-def test_user_supplied_script_and_port_are_not_duplicated():
+def test_user_script_is_kept_and_proxino_addon_still_loads():
+    # The UI lives in Proxino's own addon. Dropping it because the user passed
+    # their own -s is the original bug this test now guards against.
     out = build_argv(["-s", "x.py", "-p", "1234"], {})
-    assert out.count("-s") == 1 and out.count("-p") == 1
     assert out[:4] == ["-s", "x.py", "-p", "1234"]
+    assert out.count("-p") == 1
+    assert ADDON in out and out.count(ADDON) == 1
 
-def test_equals_form_of_user_options_is_not_duplicated():
+def test_equals_form_keeps_user_options_and_adds_addon():
     out = build_argv(["--listen-port=1234", "--scripts=x.py"], {})
-    assert "-p" not in out and "-s" not in out
     assert out[:2] == ["--listen-port=1234", "--scripts=x.py"]
+    assert "-p" not in out
+    assert ADDON in out
+
+def test_addon_is_not_loaded_twice_when_user_passes_it():
+    out = build_argv(["-s", ADDON], {})
+    assert out.count(ADDON) == 1
 
 def test_abbreviations_are_not_ours():
     out = build_argv(["--web", "9999", "--proxy", "7777"], {})

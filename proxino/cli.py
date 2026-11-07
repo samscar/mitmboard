@@ -33,8 +33,11 @@ def build_argv(argv: list[str], env: Mapping[str, str]) -> list[str]:
                         default=int(env.get("PROXINO_WEB_PORT", DEFAULT_WEB_PORT)))
     ns, rest = parser.parse_known_args(argv)
     out = list(rest)
-    if not _has_option(rest, ("-s", "--scripts")):
-        out += ["-s", str(addon_path())]
+    # Always load Proxino's own addon: it serves the web UI, so dropping it
+    # silently removes the entire interface. Guard only against duplicates.
+    addon = str(addon_path())
+    if addon not in rest:
+        out += ["-s", addon]
     if not _has_option(rest, ("-p", "--listen-port")):
         out += ["-p", str(ns.proxy_port)]
     out += ["--set", f"proxino_web_port={ns.web_port}"]
