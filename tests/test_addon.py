@@ -519,33 +519,3 @@ async def test_save_response_file_supports_binary_bodies(tmp_path):
 async def test_save_response_file_returns_none_for_unknown_flow():
     addon = Mitmboard()
     assert addon.save_response_file("nope") is None
-
-
-async def test_save_response_file_derives_the_extension_from_content_type(tmp_path):
-    addon = Mitmboard()
-    with taddons.context(addon):
-        f = tflow.tflow(resp=True)
-        f.response.headers["content-type"] = "application/json; charset=utf-8"
-        f.response.content = b'{"ok":true}'
-        addon._mflows[f.id] = f
-        saved = addon.save_response_file(f.id, root=tmp_path)
-    assert saved is not None
-    assert saved["path"].endswith(".json")
-    assert saved["size"] == 11
-    assert tmp_path.joinpath(saved["path"].rsplit("/", 1)[-1]).read_bytes() == b'{"ok":true}'
-
-
-async def test_save_response_file_supports_binary_bodies(tmp_path):
-    addon = Mitmboard()
-    with taddons.context(addon):
-        f = tflow.tflow(resp=True)
-        f.response.headers["content-type"] = "image/png"
-        f.response.content = b"\x89PNG\r\n\x1a\n"
-        addon._mflows[f.id] = f
-        saved = addon.save_response_file(f.id, root=tmp_path)
-    assert saved is not None and saved["path"].endswith(".png")
-
-
-async def test_save_response_file_returns_none_for_unknown_flow():
-    addon = Mitmboard()
-    assert addon.save_response_file("nope") is None

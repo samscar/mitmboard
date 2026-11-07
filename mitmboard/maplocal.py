@@ -143,6 +143,41 @@ class MapLocalEngine:
         return MapLocalHit(rule_id=rule.id, file=rule.file, body=body,
                            content_type=content_type_for(rule.file), status=rule.status)
 
+    def _rules(self) -> tuple[bool, list[MapLocalRule]]:
+        data = self._rules_provider() or {}
+        rules = []
+        for r in data.get("rules", []):
+            try:
+                rules.append(MapLocalRule.from_dict(r))
+            except ValueError:
+                continue
+        return bool(data.get("enabled", True)), rules
+
+    def hit_for(self, flow) -> MapLocalHit | None:
+        """Return the hit that serves `flow`, or None.
+
+        Replays are skipped: they already carry the response being replayed,
+        and overwriting it would make the replayed flow lie about its result.
+        """
+        if getattr(flow, "is_replay", False):
+            return None
+        enabled, rules = self._rules()
+        if not enabled:
+            return None
+        req = getattr(flow, "request", None)
+        if req is None:
+            return None
+        path = req.path.split("?", 1)[0]
+        rule = match_rule(rules, host=req.host, path=path, method=req.method)
+        if rule is None:
+            return None
+        try:
+            body = self._read_file(rule.file)
+        except OSError as e:
+            raise MapLocalFileError(rule.file, e, rule.id) from e
+        return MapLocalHit(rule_id=rule.id, file=rule.file, body=body,
+                           content_type=content_type_for(rule.file), status=rule.status)
+
     def payload_for(self, flow) -> tuple[bytes, str, int] | None:
         """Return (body, content_type, status) when a rule serves `flow`, else None."""
         hit = self.hit_for(flow)

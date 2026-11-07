@@ -58,15 +58,6 @@ def store_bytes(root: Path, data: bytes, extension: str) -> Path:
     return path
 
 
-def is_managed(root: Path, path: str | Path) -> bool:
-    """True when `path` resolves inside `root` -- the only files we may delete."""
-    try:
-        Path(path).resolve().relative_to(Path(root).resolve())
-    except (ValueError, OSError):
-        return False
-    return True
-
-
 def sweep(root: Path, referenced: set[str], ttl: float = SWEEP_TTL_SECONDS,
           now: float | None = None) -> list[str]:
     """Delete managed files no rule references, skipping recent writes.

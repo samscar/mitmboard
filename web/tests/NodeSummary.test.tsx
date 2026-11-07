@@ -54,7 +54,7 @@ describe("node summary", () => {
     render(<App />);
     fireEvent.click(document.querySelector(".stree-host") as HTMLElement);
 
-    const node = await screen.findByRole("region", { name: "Node detail" });
+    const node = await screen.findByRole("region", { name: "Node summary" });
     expect(node).toHaveTextContent("api.soum.sa");
     expect(screen.getByText("Requests")).toBeInTheDocument();
     expect(screen.getAllByText("2").length).toBeGreaterThan(0);
@@ -69,16 +69,17 @@ describe("node summary", () => {
     expect(screen.getByText("0 / 1")).toBeInTheDocument();  // one 500 under api.soum.sa
     expect(screen.getByText("Average")).toBeInTheDocument();
     expect(screen.getByText("200 ms")).toBeInTheDocument(); // (100 + 300) / 2
+    expect(screen.getByText("Bytes")).toBeInTheDocument();  // total traffic belongs in Summary
   });
 
   it("goes back to the request detail when a request is selected again", async () => {
     render(<App />);
     fireEvent.click(document.querySelector(".stree-host") as HTMLElement);
-    await screen.findByRole("region", { name: "Node detail" });
+    await screen.findByRole("region", { name: "Node summary" });
 
     fireEvent.click(document.querySelector(".stree-leaf") as HTMLElement);
     await waitFor(() => expect(screen.getByText(/https:\/\/api\.soum\.sa\/v2\/[ab]/)).toBeInTheDocument());
-    expect(screen.queryByRole("region", { name: "Node detail" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Node summary" })).toBeNull();
   });
 });
 
@@ -96,7 +97,7 @@ describe("node summary for a directory", () => {
     const dir = document.querySelector(".stree-folder:not(.stree-host)") as HTMLElement;
     fireEvent.click(dir);
 
-    const node = await screen.findByRole("region", { name: "Node detail" });
+    const node = await screen.findByRole("region", { name: "Node summary" });
     expect(node).toHaveTextContent("api.soum.sa/v2");
     expect(node).toHaveTextContent("Requests");
     // /v2/a and /v2/b belong here; the cdn host does not.

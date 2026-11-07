@@ -1,11 +1,8 @@
 import { useEffect, useRef } from "react";
 
-export interface MenuItem {
-  label?: string;
-  onSelect?: () => void;
-  disabled?: boolean;
-  separator?: boolean;
-}
+import type { MenuItem } from "../flowMenu";
+
+export type { MenuItem };
 
 /** A right-click menu anchored at a viewport point.
 

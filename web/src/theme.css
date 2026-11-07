@@ -1120,21 +1120,21 @@ body.in-tauri .topbar { padding-left: 82px; }
 /* --- Context menu -------------------------------------------------------- */
 .ctxmenu {
   position: fixed; z-index: 60; min-width: 190px; padding: 5px;
-  background: #171b24; border: 1px solid #2a3040; border-radius: 9px;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 9px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
 }
 .ctxitem {
   display: block; width: 100%; text-align: left; padding: 7px 10px;
   background: transparent; border: none; border-radius: 6px;
-  color: var(--fg); font-size: 12.5px; cursor: pointer;
+  color: var(--text); font-size: 12.5px; cursor: pointer;
 }
-.ctxitem:hover:not(:disabled) { background: #232a38; }
+.ctxitem:hover:not(:disabled) { background: var(--panel); }
 .ctxitem:disabled { color: var(--sec); opacity: .5; cursor: default; }
-.ctxsep { height: 1px; margin: 4px 6px; background: #2a3040; }
+.ctxsep { height: 1px; margin: 4px 6px; background: var(--border); }
 
 /* --- Map Local ----------------------------------------------------------- */
 .mapped-badge {
-  background: rgba(139, 124, 246, .18); color: var(--brand);
+  background: var(--panel2); color: var(--brand); border: 1px solid var(--border);
   border-radius: 4px; padding: 0 5px; margin-right: 5px;
   font-size: 9.5px; font-weight: 700; letter-spacing: .04em;
 }
@@ -1142,8 +1142,8 @@ body.in-tauri .topbar { padding-left: 82px; }
 .ml-field { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
 .ml-field label { font-size: 11px; font-weight: 600; color: var(--sec); }
 .ml-field input, .ml-field select {
-  padding: 7px 9px; border-radius: 7px; background: #0f131b;
-  border: 1px solid #2a3040; color: var(--fg); font-size: 12.5px;
+  padding: 7px 9px; border-radius: 7px; background: var(--field);
+  border: 1px solid var(--border); color: var(--text); font-size: 12.5px;
   font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
 }
 .ml-row { display: flex; gap: 12px; }
@@ -1154,7 +1154,7 @@ body.in-tauri .topbar { padding-left: 82px; }
 .ml-choose input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .ml-choose.disabled { opacity: .55; pointer-events: none; }
 .ml-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--sec); line-height: 1.5; }
-.ml-hint code { background: #0f131b; border-radius: 4px; padding: 1px 4px; }
+.ml-hint code { background: var(--field); border-radius: 4px; padding: 1px 4px; }
 
 /* --- Map Local rule list ------------------------------------------------- */
 .ml-modal { width: 760px; max-width: 760px; }
@@ -1175,7 +1175,7 @@ body.in-tauri .topbar { padding-left: 82px; }
 .ml-rule .bp-del:disabled { opacity: .3; cursor: default; }
 
 /* --- Tree selection and Focus -------------------------------------------- */
-.stree-row.selected { background: #232a38; }
+.stree-row.selected { background: var(--panel); }
 .stree-caret { cursor: pointer; }
 .stree-focus { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); display: inline-block; }
 .stree-other .stree-name { color: var(--sec); font-style: italic; }
@@ -1245,9 +1245,9 @@ body.in-tauri .topbar { padding-left: 82px; }
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
   position: relative; width: 28px; height: 26px; padding: 0;
   background: transparent; border: 1px solid transparent; border-radius: 7px;
-  color: var(--sec); cursor: pointer;
+  color: var(--text); opacity: .8; cursor: pointer;
 }
-.tb-icon:hover:not(:disabled) { background: var(--chip); color: var(--text); }
+.tb-icon:hover:not(:disabled) { background: var(--chip); opacity: 1; }
 .tb-icon:disabled { opacity: .4; cursor: default; }
 .tb-icon .tb-bp-dot { position: absolute; top: 4px; right: 4px; }
 .sb-bp {
@@ -1259,5 +1259,3 @@ body.in-tauri .topbar { padding-left: 82px; }
 
 /* The switch sits at the panel's left edge; the count owns the free space. */
 .lp-head .listmode { margin-left: 0; }
-.tb-icon { color: var(--text); opacity: .8; }
-.tb-icon:hover:not(:disabled) { opacity: 1; }

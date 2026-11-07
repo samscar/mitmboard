@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useStore } from "../store";
 import { fetchDetail } from "../api";
 import { bytes, methodColor, statusColor, typeLabel } from "../format";
-import { draftRuleForFlow, replaceRule, ruleFor, saveRuleFirst, setRuleEnabled } from "../maplocal";
-import { copyCurl, copyUrl, replayFlow } from "../flowActions";
+import { replaceRule, saveRuleFirst, setRuleEnabled } from "../maplocal";
+import { flowMenuItems } from "../flowMenu";
 import { selectFlow } from "../selection";
 import { arrowKeysAvailable } from "../keyboard";
-import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { ContextMenu } from "./ContextMenu";
 import { MapLocalDialog } from "./MapLocalDialog";
 import { ReplayModal } from "./ReplayModal";
 import type { FlowDetail, FlowMeta, MapLocalRule } from "../types";
@@ -19,6 +19,8 @@ export function FlowTable() {
   const selectedId = useStore((s) => s.selectedId);
   const maplocal = useStore((s) => s.maplocal);
   const setMaplocal = useStore((s) => s.setMaplocal);
+  const focus = useStore((s) => s.focus);
+  const toggleFocus = useStore((s) => s.toggleFocus);
   const [menu, setMenu] = useState<{ x: number; y: number; flow: FlowMeta } | null>(null);
   const [dialog, setDialog] = useState<{ rule: MapLocalRule; flowId: string; replace?: boolean } | null>(null);
   const [resend, setResend] = useState<FlowDetail | null>(null);
@@ -53,30 +55,14 @@ export function FlowTable() {
     setDialog(null);
   };
 
-  // A flow that already hit a rule gets "edit"/"disable" for that rule instead
-  // of a blank Map Local sheet, so the user lands on the rule that is actually
-  // firing rather than creating a duplicate beside it.
-  const mapItems = (f: FlowMeta): MenuItem[] => {
-    const hit = ruleFor(maplocal, f.maplocal_rule_id);
-    if (!hit) {
-      return [{ label: "Map Local…", onSelect: () => setDialog({ rule: draftRuleForFlow(f), flowId: f.id }) }];
-    }
-    return [
-      { label: "Edit Map Local rule…", onSelect: () => setDialog({ rule: hit, flowId: f.id, replace: true }) },
-      { label: "Disable this rule", onSelect: () => { setRuleEnabled(maplocal, hit.id, false).then(setMaplocal).catch(() => {}); } },
-    ];
-  };
-
-  // Same actions as the detail pane's buttons, reached without leaving the row.
-  const items = (f: FlowMeta): MenuItem[] => [
-    ...mapItems(f),
-    { separator: true },
-    { label: "Copy URL", onSelect: () => { copyUrl(f).catch(() => {}); } },
-    { label: "Copy cURL", onSelect: () => { copyCurl(f).catch(() => {}); } },
-    { separator: true },
-    { label: "Replay", onSelect: () => { replayFlow(f).catch(() => {}); } },
-    { label: "Edit & Resend", onSelect: () => { fetchDetail(f.id).then(setResend).catch(() => {}); } },
-  ];
+  const items = (f: FlowMeta) => flowMenuItems(f, {
+    maplocal,
+    focused: focus.includes(f.host),
+    onFocus: toggleFocus,
+    onMapLocal: (rule, replace) => setDialog({ rule, flowId: f.id, replace }),
+    onDisableRule: (ruleId) => { setRuleEnabled(maplocal, ruleId, false).then(setMaplocal).catch(() => {}); },
+    onResend: (flowId) => { fetchDetail(flowId).then(setResend).catch(() => {}); },
+  });
 
   return (
     <div className="flowtable" role="table">

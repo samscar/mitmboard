@@ -14,7 +14,6 @@ from mitmboard.managed import (
     ManagedFileTooLarge,
     extension_for,
     extension_for_content_type,
-    is_managed,
     store_bytes,
     sweep,
 )
@@ -48,13 +47,6 @@ def test_extension_from_filename_and_content_type():
     assert extension_for_content_type("image/png") == ".png"
     assert extension_for_content_type("") == ".bin"
     assert extension_for_content_type("application/x-nonsense") == ".bin"
-
-
-def test_is_managed_only_for_paths_inside_the_root(tmp_path):
-    inside = tmp_path / "abc.json"
-    assert is_managed(tmp_path, inside)
-    outside = tmp_path.parent / "elsewhere.json"
-    assert not is_managed(tmp_path, outside)
 
 
 def test_sweep_removes_unreferenced_files_but_keeps_referenced(tmp_path):

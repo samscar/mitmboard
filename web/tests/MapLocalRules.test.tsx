@@ -253,3 +253,48 @@ describe("a flow that already hit a rule", () => {
     expect(puts[0].rules[0].enabled).toBe(false);
   });
 });
+
+describe("context menu scope after the layout review", () => {
+  beforeEach(() => {
+    useStore.getState().clear();
+    useStore.getState().setListMode("structure");
+    useStore.getState().setMaplocal({ enabled: true, rules: [] });
+    useStore.getState().setFocus([]);
+  });
+
+  it("offers Map Local only on a directory, never Focus", () => {
+    stubApi([mk("a")]);
+    useStore.getState().upsertFlow(mk("a"));
+    render(<App />);
+
+    const dir = document.querySelector(".stree-folder:not(.stree-host)") as HTMLElement;
+    fireEvent.contextMenu(dir, { clientX: 10, clientY: 10 });
+
+    expect(screen.getByRole("menuitem", { name: "Map Local…" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Focus" })).toBeNull();
+  });
+
+  it("keeps a host inside Other Hosts a host: host-only prefill plus Focus", async () => {
+    const a = mk("a", { host: "api.soum.sa" });
+    const b = mk("b", { host: "cdn.soum.sa", path: "/img/logo.png" });
+    stubApi([a, b]);
+    useStore.getState().upsertFlow(a);
+    useStore.getState().upsertFlow(b);
+    useStore.getState().setFocus(["api.soum.sa"]);
+    render(<App />);
+
+    // Expand Other Hosts, then right-click the host that lives inside it.
+    fireEvent.click(document.querySelector(".stree-other .stree-caret") as HTMLElement);
+    // The pinned host comes first; the one under Other Hosts is second.
+    const otherHost = [...document.querySelectorAll(".stree-host")][1] as HTMLElement;
+    fireEvent.contextMenu(otherHost, { clientX: 10, clientY: 10 });
+
+    expect(screen.getByRole("menuitem", { name: "Focus" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Map Local…" }));
+
+    await waitFor(() => screen.getByRole("dialog", { name: "Map Local rule" }));
+    expect(screen.getByLabelText("Host")).toHaveValue("cdn.soum.sa");
+    expect(screen.getByLabelText("Path")).toHaveValue("");
+  });
+});
+

@@ -243,3 +243,25 @@ describe("filter autocomplete for devices", () => {
   });
 });
 
+describe("Other Hosts container", () => {
+  beforeEach(() => {
+    useStore.getState().clear();
+    useStore.getState().setListMode("structure");
+  });
+
+  it("toggles instead of selecting the pseudo node", () => {
+    const a = mk("a", { host: "api.soum.sa" });
+    const b = mk("b", { host: "cdn.soum.sa", path: "/img/logo.png" });
+    stubApi([a, b]);
+    useStore.getState().upsertFlow(a);
+    useStore.getState().upsertFlow(b);
+    useStore.getState().setFocus(["api.soum.sa"]);
+    render(<App />);
+
+    fireEvent.click(document.querySelector(".stree-other") as HTMLElement);
+
+    expect(useStore.getState().selectedNode).toBeNull();
+    expect(screen.queryByRole("region", { name: "Node summary" })).toBeNull();
+  });
+});
+

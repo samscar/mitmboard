@@ -27,8 +27,10 @@ export function MapLocalDialog({ initial, flowId, onSave, onClose }: {
     try {
       const saved = await saveCapturedResponse(flowId);
       patch({ file: saved.path });
-    } catch {
-      setError("Could not write the captured response to a file.");
+    } catch (e) {
+      setError(String((e as Error)?.message ?? "") === "422"
+        ? "That response is larger than 20 MB. Type a path to a file on the server instead."
+        : "Could not write the captured response to a file.");
     } finally {
       setBusy(false);
     }

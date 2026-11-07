@@ -2,11 +2,11 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { fetchDetail } from "../api";
 import { bytes, methodColor, statusColor } from "../format";
-import { draftRuleForDir, draftRuleForFlow, draftRuleForHost, replaceRule, ruleFor, saveRuleFirst, setRuleEnabled } from "../maplocal";
-import { copyCurl, copyUrl, replayFlow } from "../flowActions";
+import { draftRuleForDir, draftRuleForHost, replaceRule, saveRuleFirst, setRuleEnabled } from "../maplocal";
+import { flowMenuItems, type MenuItem } from "../flowMenu";
 import { selectFlow, selectNode } from "../selection";
 import { arrowKeysAvailable } from "../keyboard";
-import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { ContextMenu } from "./ContextMenu";
 import { MapLocalDialog } from "./MapLocalDialog";
 import { ReplayModal } from "./ReplayModal";
 import type { FlowDetail, FlowMeta, MapLocalRule } from "../types";
@@ -81,7 +81,8 @@ export function StructureTree() {
   // quiet the noise, not to re-render it one level lower.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set([OTHER_HOSTS]));
   const [menu, setMenu] = useState<{
-    x: number; y: number; flow?: FlowMeta; folder?: { key: string; name: string; depth: number; host?: string };
+    x: number; y: number; flow?: FlowMeta;
+    folder?: { key: string; name: string; isHost: boolean };
   } | null>(null);
   const [dialog, setDialog] = useState<{ rule: MapLocalRule; flowId: string | null; replace?: boolean } | null>(null);
   const [resend, setResend] = useState<FlowDetail | null>(null);
@@ -165,10 +166,10 @@ export function StructureTree() {
     setMenu({ x: e.clientX, y: e.clientY, flow: f });
   };
 
-  const openFolderMenu = (e: React.MouseEvent, node: Folder, depth: number, host?: string) => {
+  const openFolderMenu = (e: React.MouseEvent, node: Folder, isHost: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    setMenu({ x: e.clientX, y: e.clientY, folder: { key: node.key, name: node.name, depth, host } });
+    setMenu({ x: e.clientX, y: e.clientY, folder: { key: node.key, name: node.name, isHost } });
   };
 
   const focusItem = (host: string): MenuItem => ({
@@ -176,37 +177,26 @@ export function StructureTree() {
     onSelect: () => toggleFocus(host),
   });
 
-  const requestItems = (f: FlowMeta): MenuItem[] => {
-    const hit = ruleFor(maplocal, f.maplocal_rule_id);
-    const map: MenuItem[] = hit
-      ? [
-          { label: "Edit Map Local rule…", onSelect: () => setDialog({ rule: hit, flowId: f.id, replace: true }) },
-          { label: "Disable this rule", onSelect: () => { setRuleEnabled(maplocal, hit.id, false).then(setMaplocal).catch(() => {}); } },
-        ]
-      : [{ label: "Map Local…", onSelect: () => setDialog({ rule: draftRuleForFlow(f), flowId: f.id }) }];
-    return [
-      ...map,
-      { label: focus.includes(f.host) ? "Unfocus" : "Focus", onSelect: () => toggleFocus(f.host) },
-      { separator: true },
-      { label: "Copy URL", onSelect: () => { copyUrl(f).catch(() => {}); } },
-      { label: "Copy cURL", onSelect: () => { copyCurl(f).catch(() => {}); } },
-      { separator: true },
-      { label: "Replay", onSelect: () => { replayFlow(f).catch(() => {}); } },
-      { label: "Edit & Resend", onSelect: () => { fetchDetail(f.id).then(setResend).catch(() => {}); } },
-    ];
-  };
+  const requestItems = (f: FlowMeta): MenuItem[] => flowMenuItems(f, {
+    maplocal,
+    focused: focus.includes(f.host),
+    onFocus: toggleFocus,
+    onMapLocal: (rule, replace) => setDialog({ rule, flowId: f.id, replace }),
+    onDisableRule: (ruleId) => { setRuleEnabled(maplocal, ruleId, false).then(setMaplocal).catch(() => {}); },
+    onResend: (flowId) => { fetchDetail(flowId).then(setResend).catch(() => {}); },
+  });
 
   const menuItems = (): MenuItem[] => {
     if (menu?.flow) return requestItems(menu.flow);
     if (!menu?.folder) return [];
-    const { key, name, depth, host } = menu.folder;
-    // The tree key is "host/seg/seg"; the host node is the key itself.
-    const rule = depth === 0
+    const { key, name, isHost } = menu.folder;
+    // Host nodes carry their own name as key; directories are "host/seg/seg".
+    const rule = isHost
       ? draftRuleForHost(name)
       : draftRuleForDir(key.split("/")[0], "/" + key.split("/").slice(1).join("/"));
     const mapItem: MenuItem = { label: "Map Local…", onSelect: () => setDialog({ rule, flowId: null }) };
-    const focusHost = depth === 0 ? name : host;
-    return focusHost ? [mapItem, focusItem(focusHost)] : [mapItem];
+    // Focus is host-level only: a directory menu has no Focus entry.
+    return isHost ? [mapItem, focusItem(name)] : [mapItem];
   };
 
   const renderLeaf = (f: FlowMeta, depth: number) => {
@@ -238,11 +228,12 @@ export function StructureTree() {
     );
   };
 
-  const renderFolder = (node: Folder, depth: number, parentHost?: string): React.ReactNode => {
+  const renderFolder = (node: Folder, depth: number): React.ReactNode => {
     const isCollapsed = collapsed.has(node.key);
     const children = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name));
-    const isHost = depth === 0 && node.key !== OTHER_HOSTS;
-    const host = isHost ? node.name : parentHost;
+    // A host node's key is its own name, wherever it sits -- including inside
+    // Other Hosts, where it is one level deeper than the pinned ones.
+    const isHost = node.key !== OTHER_HOSTS && node.key === node.name;
     const isOther = node.key === OTHER_HOSTS;
     return (
       <Fragment key={node.key}>
@@ -250,8 +241,8 @@ export function StructureTree() {
              className={"stree-row stree-folder" + (isHost ? " stree-host" : "") + (isOther ? " stree-other" : "")
                         + (node.key === selectedNode ? " selected" : "")}
              style={{ paddingLeft: 14 + depth * 14 }}
-             onClick={() => selectNode(node.key)}
-             onContextMenu={(e) => openFolderMenu(e, node, depth, host)}>
+             onClick={() => (isOther ? toggle(node.key) : selectNode(node.key))}
+             onContextMenu={(e) => openFolderMenu(e, node, isHost)}>
           {/* Charles: clicking the row selects, only the caret collapses. */}
           <span className="stree-caret" aria-hidden="true"
                 onClick={(e) => { e.stopPropagation(); toggle(node.key); }}>
@@ -263,7 +254,7 @@ export function StructureTree() {
         </div>
         {!isCollapsed && (
           <>
-            {children.map((c) => renderFolder(c, depth + 1, host))}
+            {children.map((c) => renderFolder(c, depth + 1))}
             {node.leaves.map((f) => renderLeaf(f, depth + 1))}
           </>
         )}

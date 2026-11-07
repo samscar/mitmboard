@@ -34,9 +34,6 @@ export function StatusBar() {
   const proto = protocols.size === 1 ? [...protocols][0] : protocols.size ? "mixed" : "—";
   return (
     <div className="statusbar">
-      <span className="sb-dot rec" />
-      <span className="sb-item">Recording</span>
-      <span className="sb-sep">·</span>
       <span className="sb-item mono">{flows.length.toLocaleString()} requests</span>
       <span className="sb-sep">·</span>
       <span className="sb-item">{clients.length} {clients.length === 1 ? "client" : "clients"}</span>

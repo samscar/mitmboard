@@ -80,32 +80,33 @@ def _engine(rules, body=b'{"ok":true}', enabled=True, reader=None):
     return MapLocalEngine(lambda: data, read_file=reader or (lambda p: body))
 
 
-def test_payload_for_returns_body_content_type_and_status():
+def test_hit_for_carries_body_content_type_and_status():
     eng = _engine([_rule(status=201)])
-    body, ctype, status = eng.payload_for(_Flow("api.example.com", "/v1/user"))
-    assert body == b'{"ok":true}'
-    assert ctype == "application/json; charset=utf-8"
-    assert status == 201
+    hit = eng.hit_for(_Flow("api.example.com", "/v1/user"))
+    assert hit is not None
+    assert hit.body == b'{"ok":true}'
+    assert hit.content_type == "application/json; charset=utf-8"
+    assert hit.status == 201
 
 
 def test_query_string_is_ignored_when_matching_path():
     eng = _engine([_rule(path="/v1/user")])
-    assert eng.payload_for(_Flow("api.example.com", "/v1/user?page=2")) is not None
+    assert eng.hit_for(_Flow("api.example.com", "/v1/user?page=2")) is not None
 
 
 def test_no_match_returns_none():
     eng = _engine([_rule()])
-    assert eng.payload_for(_Flow("api.example.com", "/other")) is None
+    assert eng.hit_for(_Flow("api.example.com", "/other")) is None
 
 
 def test_disabled_engine_serves_nothing():
     eng = _engine([_rule()], enabled=False)
-    assert eng.payload_for(_Flow("api.example.com", "/v1/user")) is None
+    assert eng.hit_for(_Flow("api.example.com", "/v1/user")) is None
 
 
 def test_replays_are_skipped():
     eng = _engine([_rule()])
-    assert eng.payload_for(_Flow("api.example.com", "/v1/user", is_replay=True)) is None
+    assert eng.hit_for(_Flow("api.example.com", "/v1/user", is_replay=True)) is None
 
 
 def test_unreadable_file_raises_with_path():
@@ -114,13 +115,13 @@ def test_unreadable_file_raises_with_path():
 
     eng = _engine([_rule(file="/missing/mock.json")], reader=boom)
     with pytest.raises(MapLocalFileError) as exc:
-        eng.payload_for(_Flow("api.example.com", "/v1/user"))
+        eng.hit_for(_Flow("api.example.com", "/v1/user"))
     assert "/missing/mock.json" in str(exc.value)
 
 
 def test_malformed_rules_are_skipped_not_fatal():
     eng = _engine([{"id": "broken"}, _rule(id="good")])
-    assert eng.payload_for(_Flow("api.example.com", "/v1/user")) is not None
+    assert eng.hit_for(_Flow("api.example.com", "/v1/user")) is not None
 
 
 # --- content type -----------------------------------------------------------

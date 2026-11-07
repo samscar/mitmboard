@@ -10,8 +10,8 @@ import { ReplayModal } from "./ReplayModal";
 import { WsMessages } from "./WsMessages";
 import { PausedEditor } from "./PausedEditor";
 import { MapLocalDialog } from "./MapLocalDialog";
-import { NodeDetail } from "./NodeDetail";
-import { draftRuleForFlow, ruleWasDeleted, saveRuleFirst } from "../maplocal";
+import { NodeSummary } from "./NodeSummary";
+import { draftRuleForFlow, replaceRule, ruleFor, ruleWasDeleted, saveRuleFirst, setRuleEnabled } from "../maplocal";
 import type { MapLocalRule } from "../types";
 
 type Tab = "overview" | "contents" | "summary" | "messages" | "notes";
@@ -29,23 +29,15 @@ function wsFramesLine(ws: NonNullable<import("../types").FlowMeta["ws"]>): strin
   return `${ws.messages}`;
 }
 
-function HeaderList({ rows, side }: { rows: [string, string][]; side: string }) {
-  if (rows.length === 0) return <div className="empty">{side} has no headers</div>;
-  return (
-    <div className="hlist">
-      {rows.map(([k, v], i) => (
-        <div key={i} className="hrow"><span className="hkey">{k}</span>: <span className="hval">{v}</span></div>
-      ))}
-    </div>
-  );
-}
-
-function PairList({ rows, empty }: { rows: [string, string][]; empty: string }) {
+/** Headers read "name: value"; query and cookie rows read as two columns. */
+function RowList({ rows, empty, colon = false }: { rows: [string, string][]; empty: string; colon?: boolean }) {
   if (rows.length === 0) return <div className="empty">{empty}</div>;
   return (
     <div className="hlist">
       {rows.map(([k, v], i) => (
-        <div key={i} className="hrow"><span className="hkey">{k}</span><span className="hval">{v}</span></div>
+        <div key={i} className="hrow">
+          <span className="hkey">{k}</span>{colon ? ": " : null}<span className="hval">{v}</span>
+        </div>
       ))}
     </div>
   );
@@ -113,13 +105,14 @@ export function DetailPane({ width }: { width?: number } = {}) {
   const style = width != null ? { width } : undefined;
 
   if (pausedEntry) return <div className="detail" style={style}><PausedEditor key={pausedEntry.flow_id} entry={pausedEntry} /></div>;
-  if (selectedNode) return <div className="detail" style={style}><NodeDetail nodeKey={selectedNode} /></div>;
+  if (selectedNode) return <div className="detail" style={style}><NodeSummary nodeKey={selectedNode} /></div>;
   if (!detail) return <div className="detail empty" style={style}>Select a request</div>;
   const r = detail.response;
   const tabs: Tab[] = isWs
     ? ["overview", "contents", "summary", "messages", "notes"]
     : ["overview", "contents", "summary", "notes"];
   const deleted = ruleWasDeleted(maplocal, detail.maplocal_rule_id);
+  const hitRule = ruleFor(maplocal, detail.maplocal_rule_id);
   const requestCookie = detail.request.headers.find(([k]) => k.toLowerCase() === "cookie")?.[1];
   const setCookie = r?.headers.filter(([k]) => k.toLowerCase() === "set-cookie").map(([, v]) => v).join("\n");
 
@@ -145,8 +138,16 @@ export function DetailPane({ width }: { width?: number } = {}) {
           </button>
         )}
         {!isWs && <button className="chip" onClick={() => setReplayOpen(true)}>Edit &amp; Resend</button>}
-        {!isWs && (
+        {!isWs && !hitRule && (
           <button className="chip" onClick={() => setMlDialog(draftRuleForFlow(detail))}>Map Local…</button>
+        )}
+        {!isWs && hitRule && (
+          <>
+            <button className="chip" onClick={() => setMlDialog(hitRule)}>Edit Map Local rule…</button>
+            <button className="chip" onClick={() => {
+              setRuleEnabled(maplocal, hitRule.id, false).then(setMaplocal).catch(() => {});
+            }}>Disable this rule</button>
+          </>
         )}
         <button className="chip" onClick={() => navigator.clipboard.writeText(toCurl(detail))}>Copy as cURL</button>
       </div>
@@ -154,7 +155,12 @@ export function DetailPane({ width }: { width?: number } = {}) {
       {mlDialog && (
         <MapLocalDialog
           initial={mlDialog} flowId={detail.id}
-          onSave={async (rule) => { setMaplocal(await saveRuleFirst(maplocal, rule)); setMlDialog(null); }}
+          onSave={async (rule) => {
+            // A mapped request edits its rule in place; only an unmapped one
+            // creates a rule at the front of the list.
+            setMaplocal(await (hitRule ? replaceRule(maplocal, rule) : saveRuleFirst(maplocal, rule)));
+            setMlDialog(null);
+          }}
           onClose={() => setMlDialog(null)}
         />
       )}
@@ -196,9 +202,9 @@ export function DetailPane({ width }: { width?: number } = {}) {
               </div>
             </div>
             <div className="pane-body">
-              {reqTab === "headers" && <HeaderList rows={detail.request.headers} side="Request" />}
-              {reqTab === "query" && <PairList rows={queryRows(detail.query)} empty="No query parameters" />}
-              {reqTab === "cookies" && <PairList rows={cookieRows(requestCookie)} empty="No request cookies" />}
+              {reqTab === "headers" && <RowList rows={detail.request.headers} colon empty="Request has no headers" />}
+              {reqTab === "query" && <RowList rows={queryRows(detail.query)} empty="No query parameters" />}
+              {reqTab === "cookies" && <RowList rows={cookieRows(requestCookie)} empty="No request cookies" />}
               {reqTab === "text" && <BodyText body={detail.request.body} size={detail.request.size} view={detail.request.body_view} />}
               {reqTab === "json" && <JsonBody body={detail.request.body} size={detail.request.size} />}
               {reqTab === "raw" && <BodyText body={detail.request.body} size={detail.request.size} />}
@@ -219,7 +225,7 @@ export function DetailPane({ width }: { width?: number } = {}) {
               </div>
             </div>
             <div className="pane-body">
-              {respTab === "headers" && <HeaderList rows={r?.headers ?? []} side="Response" />}
+              {respTab === "headers" && <RowList rows={r?.headers ?? []} colon empty="Response has no headers" />}
               {respTab === "text" && <BodyText body={r?.body ?? null} size={r?.size ?? 0} view={r?.body_view} />}
               {respTab === "json" && <JsonBody body={r?.body ?? null} size={r?.size ?? 0} />}
               {respTab === "raw" && <BodyText body={r?.body ?? null} size={r?.size ?? 0} />}
