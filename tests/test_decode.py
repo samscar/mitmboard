@@ -3,7 +3,7 @@ import time
 
 from mitmproxy.test import tutils
 
-from proxino.decode import MAX_DECODE, MAX_PRETTY, decode_body
+from mitmboard.decode import MAX_DECODE, MAX_PRETTY, decode_body
 
 
 def test_decode_protobuf():

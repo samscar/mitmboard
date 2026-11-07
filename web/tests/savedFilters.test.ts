@@ -20,7 +20,7 @@ describe("savedFilters", () => {
     expect(listSaved()).toEqual([]);
   });
   it("corrupt storage yields empty list", () => {
-    localStorage.setItem("proxino.savedFilters", "{bad");
+    localStorage.setItem("mitmboard.savedFilters", "{bad");
     expect(listSaved()).toEqual([]);
   });
 });

@@ -1,11 +1,11 @@
 import asyncio
 import pytest
 from fastapi.testclient import TestClient
-from proxino.server import make_app
-from proxino.store import FlowStore
-from proxino.clients import ClientRegistry
-from proxino.broadcaster import Broadcaster
-from proxino.wsstore import WsStore
+from mitmboard.server import make_app
+from mitmboard.store import FlowStore
+from mitmboard.clients import ClientRegistry
+from mitmboard.broadcaster import Broadcaster
+from mitmboard.wsstore import WsStore
 from tests.test_models import make_flow
 
 def client(tmp_path):
@@ -47,7 +47,7 @@ def test_clear_uses_provided_hook_instead_of_bare_store_clear(tmp_path):
     assert c.get("/api/flows").json() == []
 
 def test_clear_runs_on_the_event_loop(tmp_path):
-    # DELETE /api/flows must run on the event loop: on_clear (Proxino.clear)
+    # DELETE /api/flows must run on the event loop: on_clear (Mitmboard.clear)
     # calls self._publish(...) -> asyncio.ensure_future(...) whenever a flow
     # is paused at clear time, which raises RuntimeError with no running
     # loop (i.e. in a threadpool-worker sync handler).
@@ -100,10 +100,10 @@ def test_ca_info_endpoint(tmp_path):
     assert "present" in info and info["cert_url"] == "http://mitm.it"
 
 def test_replay_endpoint(tmp_path):
-    from proxino.server import make_app
-    from proxino.store import FlowStore
-    from proxino.clients import ClientRegistry
-    from proxino.broadcaster import Broadcaster
+    from mitmboard.server import make_app
+    from mitmboard.store import FlowStore
+    from mitmboard.clients import ClientRegistry
+    from mitmboard.broadcaster import Broadcaster
     store = FlowStore(); store.add(make_flow(id="a"))
     seen = []
     def replayer(fid): seen.append(fid); return fid == "a"
@@ -147,7 +147,7 @@ def test_passthrough_empty_list_without_registry(tmp_path):
     assert c.get("/api/passthrough").json() == []
 
 def test_passthrough_snapshot_endpoint(tmp_path):
-    from proxino.passthrough import PassthroughRegistry
+    from mitmboard.passthrough import PassthroughRegistry
     pth = PassthroughRegistry(threshold=1)
     pth.record_failure("pinned.example.com", "1.2.3.4")
     c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
@@ -156,7 +156,7 @@ def test_passthrough_snapshot_endpoint(tmp_path):
     assert hosts[0]["host"] == "pinned.example.com"
 
 def test_passthrough_delete_removes_and_publishes(tmp_path):
-    from proxino.passthrough import PassthroughRegistry
+    from mitmboard.passthrough import PassthroughRegistry
     pth = PassthroughRegistry(threshold=1)
     pth.record_failure("pinned.example.com", "1.2.3.4")
     published = []
@@ -170,7 +170,7 @@ def test_passthrough_delete_removes_and_publishes(tmp_path):
     assert published[-1]["type"] == "passthrough.update"
 
 def test_passthrough_delete_unknown_host_404(tmp_path):
-    from proxino.passthrough import PassthroughRegistry
+    from mitmboard.passthrough import PassthroughRegistry
     pth = PassthroughRegistry()
     c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
                             passthrough=pth))
@@ -180,7 +180,7 @@ def test_passthrough_delete_config_host_409(tmp_path):
     # Config-sourced hosts re-match their pattern on the very next hello, so
     # "retry decrypt" can't apply to them — the API must say so explicitly
     # instead of pretending the removal worked (or 404-ing as if unknown).
-    from proxino.passthrough import PassthroughRegistry
+    from mitmboard.passthrough import PassthroughRegistry
     pth = PassthroughRegistry(patterns=["*.pinned.com"])
     pth.should_ignore("host.pinned.com")
     c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
@@ -200,7 +200,7 @@ def test_breakpoints_crud_and_validation(tmp_path):
     assert c.put("/api/breakpoints", json={"enabled": True, "rules": [{"id": "x", "phase": "bad"}]}).status_code == 422
 
 def test_paused_endpoints(tmp_path):
-    from proxino.breakpoints import BreakpointEngine
+    from mitmboard.breakpoints import BreakpointEngine
     calls = {}
     eng = BreakpointEngine(lambda: {"enabled": True, "rules": []})
     store = FlowStore(); store.add(make_flow(id="p", state="paused_request"))
@@ -228,7 +228,7 @@ def test_paused_endpoints(tmp_path):
     assert c.post("/api/paused/p/drop").json() == {"ok": True} and calls["drop"] == "p"
 
 def _paused_client(tmp_path, **kwargs):
-    from proxino.breakpoints import BreakpointEngine
+    from mitmboard.breakpoints import BreakpointEngine
     eng = BreakpointEngine(lambda: {"enabled": True, "rules": []})
     store = FlowStore(); store.add(make_flow(id="p", state="paused_request"))
     class F:  # minimal flow stand-in for the engine
@@ -279,7 +279,7 @@ async def test_ws_loop_unregisters_on_non_disconnect_error():
     # dies some way other than WebSocketDisconnect -- otherwise it lingers
     # in the broadcaster set and client_count() stays > 0 with no live UI,
     # which can make a breakpoint rule pause a request nobody will ever see.
-    from proxino.server import _run_ws_loop
+    from mitmboard.server import _run_ws_loop
 
     class FakeSock:
         async def receive_text(self):

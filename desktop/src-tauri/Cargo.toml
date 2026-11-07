@@ -1,7 +1,7 @@
 [package]
 name = "desktop"
 version = "0.2.0"
-description = "Proxino desktop — self-hosted network inspector for mobile HTTPS"
+description = "Mitmboard desktop — self-hosted network inspector for mobile HTTPS"
 authors = ["Abdulrahman Khalid"]
 license = "MIT"
 edition = "2021"

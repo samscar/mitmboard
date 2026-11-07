@@ -1,7 +1,7 @@
-# Proxino desktop
+# Mitmboard desktop
 
-A Tauri 2 shell around the Proxino backend. It ships the backend as a
-PyInstaller "sidecar" (`src-tauri/binaries/proxino-backend-<triple>`), picks
+A Tauri 2 shell around the Mitmboard backend. It ships the backend as a
+PyInstaller "sidecar" (`src-tauri/binaries/mitmboard-backend-<triple>`), picks
 free ports (proxy prefers 8080, web UI 8081), spawns the sidecar, waits for the
 web port, and loads the UI in a native window. The sidecar is killed on quit.
 
@@ -12,7 +12,7 @@ Prereqs: Node 22, Rust stable, Python 3.12 (`uv` recommended), plus the
 
 ```bash
 python desktop/sidecar/build.py           # builds web/dist + the sidecar binary
-python desktop/sidecar/smoke.py desktop/src-tauri/binaries/proxino-backend-*   # optional
+python desktop/sidecar/smoke.py desktop/src-tauri/binaries/mitmboard-backend-*   # optional
 cd desktop && npm ci && npm run tauri build -- --bundles dmg     # or nsis / appimage deb
 ```
 

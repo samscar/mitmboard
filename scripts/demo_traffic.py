@@ -1,4 +1,4 @@
-"""Send a realistic mix of requests through a local Proxino proxy.
+"""Send a realistic mix of requests through a local Mitmboard proxy.
 
 Usage: python scripts/demo_traffic.py [proxy_host:port] [--loop]
 Uses an iOS-app User-Agent so the client shows up as an iPhone app.
@@ -19,7 +19,7 @@ UA = "SoumApp/3.2.1 (iPhone; iOS 18.4) CFNetwork/1568.200.51 Darwin/24.4.0"
 URLS = [
     ("GET", "https://jsonplaceholder.typicode.com/posts?_limit=5", None),
     ("GET", "https://jsonplaceholder.typicode.com/users/1", None),
-    ("POST", "https://jsonplaceholder.typicode.com/posts", b'{"title":"hello","body":"from proxino","userId":7}'),
+    ("POST", "https://jsonplaceholder.typicode.com/posts", b'{"title":"hello","body":"from mitmboard","userId":7}'),
     ("GET", "https://api.github.com/repos/anthibo/proxino", None),
     ("GET", "https://httpbin.org/status/404", None),
     ("GET", "https://httpbin.org/status/500", None),

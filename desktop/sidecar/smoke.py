@@ -1,6 +1,6 @@
 """Launch a built sidecar on free ports and check /api/connect-info answers.
 
-Usage: python desktop/sidecar/smoke.py path/to/proxino-backend[-triple]
+Usage: python desktop/sidecar/smoke.py path/to/mitmboard-backend[-triple]
 Exit 0 on success; prints the sidecar's output on failure.
 """
 from __future__ import annotations
@@ -80,7 +80,7 @@ def _collect_output(proc: subprocess.Popen) -> str:
 
 def main(binary: str) -> int:
     proxy, web = free_port(), free_port()
-    env = {**os.environ, "PROXINO_NO_BROWSER": "1"}
+    env = {**os.environ, "MITMBOARD_NO_BROWSER": "1"}
     proc = subprocess.Popen([binary, "--proxy-port", str(proxy), "--web-port", str(web)],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             **_popen_kwargs())
@@ -108,6 +108,6 @@ def main(binary: str) -> int:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("usage: python desktop/sidecar/smoke.py path/to/proxino-backend[-triple]")
+        print("usage: python desktop/sidecar/smoke.py path/to/mitmboard-backend[-triple]")
         sys.exit(2)
     sys.exit(main(sys.argv[1]))

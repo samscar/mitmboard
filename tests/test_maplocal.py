@@ -1,6 +1,6 @@
 import pytest
 
-from proxino.maplocal import (
+from mitmboard.maplocal import (
     MapLocalEngine,
     MapLocalFileError,
     MapLocalRule,
@@ -136,7 +136,7 @@ def test_content_type_helpers():
 def test_config_rejects_enabled_rule_without_host_or_path():
     import tempfile
     from pathlib import Path
-    from proxino.clients import ClientRegistry
+    from mitmboard.clients import ClientRegistry
 
     with tempfile.TemporaryDirectory() as d:
         reg = ClientRegistry(Path(d) / "config.json")
@@ -147,7 +147,7 @@ def test_config_rejects_enabled_rule_without_host_or_path():
 def test_config_roundtrip_keeps_other_keys():
     import tempfile
     from pathlib import Path
-    from proxino.clients import ClientRegistry
+    from mitmboard.clients import ClientRegistry
 
     with tempfile.TemporaryDirectory() as d:
         reg = ClientRegistry(Path(d) / "config.json")

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from proxino.clients import ClientRegistry
+from mitmboard.clients import ClientRegistry
 
 def test_guess_from_user_agent(tmp_path):
     r = ClientRegistry(tmp_path / "config.json")
@@ -90,7 +90,7 @@ def test_set_label_is_atomic_no_partial_file(tmp_path, monkeypatch):
     def spy(src, dst):
         calls["n"] += 1
         return real_replace(src, dst)
-    monkeypatch.setattr("proxino.clients.os.replace", spy)
+    monkeypatch.setattr("mitmboard.clients.os.replace", spy)
     r.set_label("1.1.1.1", "Phone")
     assert calls["n"] == 1                      # went through os.replace
     assert list(tmp_path.glob("*.tmp")) == []   # no leftover temp file

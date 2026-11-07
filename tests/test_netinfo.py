@@ -1,4 +1,4 @@
-from proxino.netinfo import lan_ips
+from mitmboard.netinfo import lan_ips
 
 def test_lan_ips_returns_list_without_loopback():
     ips = lan_ips()

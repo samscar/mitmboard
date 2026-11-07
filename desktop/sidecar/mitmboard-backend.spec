@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""One-file build of the Proxino backend (mitmdump + addon + built web UI).
+"""One-file build of the Mitmboard backend (mitmdump + addon + built web UI).
 
 Run via desktop/sidecar/build.py, which sets the cwd to the repo root.
 """
@@ -19,7 +19,7 @@ platform_pkgs = {
 
 hidden = (
     collect_submodules("mitmproxy")
-    + collect_submodules("proxino")
+    + collect_submodules("mitmboard")
     + ["mitmproxy_rs", "certifi", "uvicorn.logging", "uvicorn.loops.auto",
        "uvicorn.protocols.http.auto", "uvicorn.protocols.websockets.auto",
        "uvicorn.lifespan.on"]
@@ -28,7 +28,7 @@ hidden = (
 
 datas = (
     [(str(ROOT / "web" / "dist"), "web/dist"),
-     (str(ROOT / "proxino" / "addon.py"), "proxino")]
+     (str(ROOT / "mitmboard" / "addon.py"), "mitmboard")]
     + collect_data_files("mitmproxy")
     + collect_data_files("certifi")
 )
@@ -44,7 +44,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, a.binaries, a.datas,
-    name="proxino-backend",
+    name="mitmboard-backend",
     console=True,
     upx=False,
     strip=False,

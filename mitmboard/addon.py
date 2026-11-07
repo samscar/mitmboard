@@ -3,20 +3,20 @@ import asyncio
 import logging
 import time
 from collections import OrderedDict
-from pathlib import Path
+from mitmboard.paths import config_path
 from mitmproxy import ctx, http
 from mitmproxy.addonmanager import Loader
 from mitmproxy.http import HTTPFlow, Headers
-from proxino.store import FlowStore
-from proxino.clients import ClientRegistry
-from proxino.broadcaster import Broadcaster
-from proxino.transform import flow_to_record
-from proxino.passthrough import PassthroughRegistry
-from proxino.wsstore import WsStore
-from proxino.breakpoints import BreakpointEngine
-from proxino.maplocal import MapLocalEngine, MapLocalFileError
+from mitmboard.store import FlowStore
+from mitmboard.clients import ClientRegistry
+from mitmboard.broadcaster import Broadcaster
+from mitmboard.transform import flow_to_record
+from mitmboard.passthrough import PassthroughRegistry
+from mitmboard.wsstore import WsStore
+from mitmboard.breakpoints import BreakpointEngine
+from mitmboard.maplocal import MapLocalEngine, MapLocalFileError
 
-_log = logging.getLogger("proxino")
+_log = logging.getLogger("mitmboard")
 
 
 def apply_request_edits(mflow, edits: dict) -> bool:
@@ -52,10 +52,10 @@ def apply_response_edits(mflow, edits: dict) -> bool:
         resp.content = edits["body"].encode("utf-8"); changed = True
     return changed
 
-class Proxino:
+class Mitmboard:
     def __init__(self) -> None:
         self.store = FlowStore()
-        self.registry = ClientRegistry(Path.home() / ".proxino" / "config.json")
+        self.registry = ClientRegistry(config_path())
         self.broadcaster = Broadcaster()
         self.passthrough = PassthroughRegistry(patterns=self.registry.passthrough_patterns())
         self._mflows: OrderedDict[str, HTTPFlow] = OrderedDict()
@@ -73,12 +73,12 @@ class Proxino:
         self._modified: set[str] = set()
 
     def load(self, loader: Loader) -> None:
-        loader.add_option("proxino_web_port", int, 8081, "Proxino web UI port")
+        loader.add_option("mitmboard_web_port", int, 8081, "Mitmboard web UI port")
 
     async def running(self) -> None:
         import os, uvicorn, webbrowser
-        from proxino.server import make_app
-        port = ctx.options.proxino_web_port
+        from mitmboard.server import make_app
+        port = ctx.options.mitmboard_web_port
         proxy_port = ctx.options.listen_port or 8080
         app = make_app(self.store, self.registry, self.broadcaster,
                        replayer=self.replay, edited_replayer=self.replay_edited,
@@ -94,13 +94,13 @@ class Proxino:
         asyncio.ensure_future(self._sweep_loop())
         # The desktop shell hosts the UI in its own window, so it sets this
         # to suppress the browser tab the CLI opens.
-        if not os.environ.get("PROXINO_NO_BROWSER"):
+        if not os.environ.get("MITMBOARD_NO_BROWSER"):
             webbrowser.open(f"http://127.0.0.1:{port}")
 
     def _publish(self, evt: dict) -> None:
         fut = asyncio.ensure_future(self.broadcaster.publish(evt))
         fut.add_done_callback(
-            lambda f: f.exception() and _log.error("proxino publish failed: %r", f.exception())
+            lambda f: f.exception() and _log.error("mitmboard publish failed: %r", f.exception())
         )
 
     def _record(self, flow, state: str | None = None):
@@ -150,10 +150,10 @@ class Proxino:
         try:
             hit = self.maplocal.payload_for(flow)
         except MapLocalFileError as e:
-            _log.error("proxino map local: %s", e)
+            _log.error("mitmboard map local: %s", e)
             flow.response = http.Response.make(
                 500,
-                f"Proxino Map Local: {e}\n".encode(),
+                f"Mitmboard Map Local: {e}\n".encode(),
                 {"Content-Type": "text/plain; charset=utf-8"},
             )
             return True
@@ -175,7 +175,7 @@ class Proxino:
             if self.passthrough.should_ignore(sni, client_ip=client_ip):
                 data.ignore_connection = True
         except Exception:
-            _log.exception("proxino passthrough hook failed")
+            _log.exception("mitmboard passthrough hook failed")
 
     def tls_failed_client(self, data) -> None:
         try:
@@ -190,12 +190,12 @@ class Proxino:
             if flipped:
                 failures = next((h["failures"] for h in hosts if h["host"] == host), 0)
                 _log.info(
-                    "proxino: passing through %s (client %s refused the proxy certificate %d times)",
+                    "mitmboard: passing through %s (client %s refused the proxy certificate %d times)",
                     host, client_ip, failures,
                 )
             self._publish({"type": "passthrough.update", "hosts": hosts})
         except Exception:
-            _log.exception("proxino passthrough hook failed")
+            _log.exception("mitmboard passthrough hook failed")
 
     def request(self, flow: HTTPFlow) -> None:
         self._apply_map_local(flow)
@@ -271,7 +271,7 @@ class Proxino:
             try:
                 self._sweep_once()
             except Exception:
-                _log.exception("proxino breakpoint sweep failed")
+                _log.exception("mitmboard breakpoint sweep failed")
 
     def _emit_ws_update(self, flow: HTTPFlow) -> None:
         rec = flow_to_record(flow, self.registry)
@@ -332,4 +332,4 @@ class Proxino:
         ctx.master.commands.call("replay.client", [clone])
         return True
 
-addons = [Proxino()]
+addons = [Mitmboard()]

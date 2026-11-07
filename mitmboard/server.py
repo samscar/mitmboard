@@ -8,7 +8,7 @@ from .netinfo import lan_ips
 from .sessions import dump_session, load_session
 from .har import flows_to_har
 from .cainfo import ca_info
-from proxino.paths import web_dist
+from mitmboard.paths import web_dist
 
 if TYPE_CHECKING:
     from .wsstore import WsStore
@@ -64,7 +64,7 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
              resume_paused: Callable[[str, dict], dict | None] | None = None,
              drop_paused: Callable[[str], dict | None] | None = None,
              web_port: int = 8081, proxy_port: int = 8080) -> FastAPI:
-    app = FastAPI(title="Proxino")
+    app = FastAPI(title="Mitmboard")
 
     @app.get("/api/flows")
     def list_flows() -> list[dict]:
@@ -112,7 +112,7 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
     def download_session() -> JSONResponse:
         return JSONResponse(
             dump_session(store),
-            headers={"Content-Disposition": "attachment; filename=proxino-session.json"},
+            headers={"Content-Disposition": "attachment; filename=mitmboard-session.json"},
         )
 
     @app.post("/api/session")
@@ -124,7 +124,7 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
         flows = [store.get(m["id"]) for m in store.list_meta()]
         return JSONResponse(
             flows_to_har(flows),
-            headers={"Content-Disposition": "attachment; filename=proxino.har"},
+            headers={"Content-Disposition": "attachment; filename=mitmboard.har"},
         )
 
     @app.get("/api/flows/{flow_id}/ws")
@@ -168,7 +168,7 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
         if entry["source"] == "config":
             raise HTTPException(
                 status_code=409,
-                detail="host matches a configured passthrough pattern; edit ~/.proxino/config.json",
+                detail="host matches a configured passthrough pattern; edit ~/.mitmboard/config.json",
             )
         if not passthrough.remove(host):
             raise HTTPException(status_code=404, detail="not found")

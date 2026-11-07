@@ -1,5 +1,5 @@
 {
-  "name": "proxino-web",
+  "name": "mitmboard-web",
   "private": true,
   "type": "module",
   "scripts": {

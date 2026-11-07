@@ -1,5 +1,5 @@
 import pytest
-from proxino.broadcaster import Broadcaster
+from mitmboard.broadcaster import Broadcaster
 
 class FakeWS:
     def __init__(self, fail=False):

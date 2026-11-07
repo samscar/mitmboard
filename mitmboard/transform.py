@@ -77,7 +77,7 @@ def flow_to_record(mflow: HTTPFlow, registry: ClientRegistry) -> Flow:
     flow_kind = "ws" if ws is not None else "http"
     ws_summary = None
     if ws is not None:
-        from proxino.models import WsSummary
+        from mitmboard.models import WsSummary
         closed_by = None if ws.closed_by_client is None else ("client" if ws.closed_by_client else "server")
         ws_summary = WsSummary(messages=len(ws.messages), open=ws.timestamp_end is None and ws.closed_by_client is None,
                                closed_by=closed_by, close_code=ws.close_code, close_reason=ws.close_reason)

@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-import proxino.paths as paths
+import mitmboard.paths as paths
 
 def _mk(dirpath: Path) -> Path:
     dirpath.mkdir(parents=True)
@@ -12,7 +12,7 @@ def test_frozen_bundle_wins(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"), raising=False)
     assert paths.web_dist() == frozen
-    assert paths.addon_path() == tmp_path / "meipass" / "proxino" / "addon.py"
+    assert paths.addon_path() == tmp_path / "meipass" / "mitmboard" / "addon.py"
 
 def test_repo_dist_when_not_frozen(monkeypatch):
     monkeypatch.delattr(sys, "frozen", raising=False)
@@ -24,7 +24,7 @@ def test_repo_dist_when_not_frozen(monkeypatch):
 
 def test_package_data_fallback(tmp_path, monkeypatch):
     monkeypatch.delattr(sys, "frozen", raising=False)
-    fake_pkg = tmp_path / "proxino"
+    fake_pkg = tmp_path / "mitmboard"
     fake_pkg.mkdir()
     wheel_dist = _mk(fake_pkg / "web_dist")
     monkeypatch.setattr(paths, "_PKG_DIR", fake_pkg)
@@ -32,5 +32,5 @@ def test_package_data_fallback(tmp_path, monkeypatch):
 
 def test_none_when_nothing_exists(tmp_path, monkeypatch):
     monkeypatch.delattr(sys, "frozen", raising=False)
-    monkeypatch.setattr(paths, "_PKG_DIR", tmp_path / "proxino")
+    monkeypatch.setattr(paths, "_PKG_DIR", tmp_path / "mitmboard")
     assert paths.web_dist() is None

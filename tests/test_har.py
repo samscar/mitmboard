@@ -1,11 +1,11 @@
-from proxino.har import flows_to_har
+from mitmboard.har import flows_to_har
 from tests.test_models import make_flow
 
 def test_har_shape():
     har = flows_to_har([make_flow(id="a")])
     log = har["log"]
     assert log["version"] == "1.2"
-    assert log["creator"]["name"] == "Proxino"
+    assert log["creator"]["name"] == "Mitmboard"
     e = log["entries"][0]
     assert e["request"]["method"] == "GET"
     assert e["request"]["url"] == "https://api.soum.sa/v2/x"

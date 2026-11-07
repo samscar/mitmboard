@@ -79,7 +79,7 @@ jobs:
         run: python desktop/sidecar/build.py
       - name: Smoke-test sidecar
         shell: bash
-        run: python desktop/sidecar/smoke.py desktop/src-tauri/binaries/proxino-backend-*
+        run: python desktop/sidecar/smoke.py desktop/src-tauri/binaries/mitmboard-backend-*
       - name: Build desktop bundle
         working-directory: desktop
         run: npm ci && npm run tauri build -- --bundles ${{ matrix.bundles }}
@@ -107,7 +107,7 @@ jobs:
         with: { node-version: "22", cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci && npm run build
         working-directory: web
-      - run: rm -rf proxino/web_dist && cp -r web/dist proxino/web_dist
+      - run: rm -rf mitmboard/web_dist && cp -r web/dist mitmboard/web_dist
       - run: pip install build && python -m build
       - uses: actions/upload-artifact@v4
         with: { name: wheel, path: dist/*, if-no-files-found: error }
@@ -148,6 +148,6 @@ jobs:
         with:
           draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          name: Proxino ${{ github.ref_name }}
+          name: Mitmboard ${{ github.ref_name }}
           body_path: notes.md
           files: artifacts/*

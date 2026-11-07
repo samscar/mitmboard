@@ -1,0 +1,14 @@
+Mitmboard
+=========
+
+Copyright (c) Abdulrahman Khalid and the Proxino contributors.
+
+Mitmboard is a fork of Proxino (https://github.com/anthibo/proxino), which is
+distributed under the MIT License. The original copyright notice and the full
+license text are preserved in LICENSE and are not modified by the fork.
+
+Changes made in this fork (Structure view, Map Local, CLI addon-loading fix,
+version pinning, rename) are released under the same MIT License.
+
+Mitmboard is a third-party project. It is not affiliated with, endorsed by, or
+sponsored by the mitmproxy project or its maintainers.

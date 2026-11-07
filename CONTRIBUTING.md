@@ -1,6 +1,6 @@
-# Contributing to Proxino
+# Contributing to Mitmboard
 
-Thanks for your interest! Proxino is a mitmproxy addon + FastAPI backend + React/TypeScript UI. Contributions of all sizes are welcome.
+Thanks for your interest! Mitmboard is a mitmproxy addon + FastAPI backend + React/TypeScript UI. Contributions of all sizes are welcome.
 
 ## Setup
 
@@ -14,7 +14,7 @@ cd web && npm install && cd ..
 
 ```bash
 cd web && npm run build && cd ..   # build the UI the server serves
-.venv/bin/proxino                  # proxy :8080, web UI :8081
+.venv/bin/mitmboard                  # proxy :8080, web UI :8081
 ```
 
 For UI work, run the Vite dev server (`cd web && npm run dev`) alongside the backend.

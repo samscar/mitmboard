@@ -1,5 +1,5 @@
 export type SavedFilter = { name: string; query: string; fav: boolean };
-const KEY = "proxino.savedFilters";
+const KEY = "mitmboard.savedFilters";
 
 export function listSaved(): SavedFilter[] {
   try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }

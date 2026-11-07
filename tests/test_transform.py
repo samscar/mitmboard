@@ -1,7 +1,7 @@
 from mitmproxy.flow import Error
 from mitmproxy.test import tflow, tutils
-from proxino.transform import flow_to_record
-from proxino.clients import ClientRegistry
+from mitmboard.transform import flow_to_record
+from mitmboard.clients import ClientRegistry
 
 def test_transform_basic(tmp_path):
     reg = ClientRegistry(tmp_path / "c.json")
@@ -61,8 +61,8 @@ def test_transform_error_overrides_complete(tmp_path):
     assert isinstance(rec.error, str) and rec.error
 
 def test_timing_phases_populated(tmp_path):
-    from proxino.clients import ClientRegistry
-    from proxino.transform import flow_to_record
+    from mitmboard.clients import ClientRegistry
+    from mitmboard.transform import flow_to_record
     from mitmproxy.test import tflow, tutils
     reg = ClientRegistry(tmp_path / "c.json")
     mf = tflow.tflow(req=tutils.treq(), resp=tutils.tresp())
@@ -73,8 +73,8 @@ def test_timing_phases_populated(tmp_path):
     assert rec.timing.connect_ms is None or isinstance(rec.timing.connect_ms, int)
 
 def test_negative_connect_phase_is_none(tmp_path, monkeypatch):
-    from proxino.clients import ClientRegistry
-    from proxino.transform import flow_to_record
+    from mitmboard.clients import ClientRegistry
+    from mitmboard.transform import flow_to_record
     from mitmproxy.test import tflow, tutils
     reg = ClientRegistry(tmp_path / "c.json")
     mf = tflow.tflow(req=tutils.treq(), resp=tutils.tresp())
@@ -108,8 +108,8 @@ def test_transform_decodes_protobuf_response_body(tmp_path):
     assert meta["response"]["body_view"] == "protobuf"
 
 from mitmproxy.websocket import WebSocketData
-from proxino.transform import flow_to_record
-from proxino.clients import ClientRegistry
+from mitmboard.transform import flow_to_record
+from mitmboard.clients import ClientRegistry
 
 def test_ws_flow_gets_kind_and_summary(tmp_path):
     f = tflow.tflow(resp=True)

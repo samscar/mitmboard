@@ -6,9 +6,9 @@ def _free(port):
         return s.connect_ex(("127.0.0.1", port)) != 0
 
 @pytest.mark.skipif(not _free(8081) or not _free(8080), reason="ports busy")
-def test_proxino_cli_binds_web_ui(tmp_path):
+def test_mitmboard_cli_binds_web_ui(tmp_path):
     env = {**os.environ, "BROWSER": "true"}  # non-blocking no-op browser
-    proc = subprocess.Popen([sys.executable, "-m", "proxino.cli"],
+    proc = subprocess.Popen([sys.executable, "-m", "mitmboard.cli"],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         up = False

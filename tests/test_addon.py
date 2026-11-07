@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from mitmproxy.test import taddons, tflow
-from proxino.addon import Proxino
+from mitmboard.addon import Mitmboard
 
 
 def _hello_data(sni, ignore=False, ip="9.8.7.6"):
@@ -15,7 +15,7 @@ def _tls_failed_data(sni, ip="9.8.7.6"):
     return SimpleNamespace(context=context)
 
 async def test_response_hook_records_and_publishes():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -31,7 +31,7 @@ async def test_response_hook_records_and_publishes():
 
 
 async def test_error_hook_records_and_publishes():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -46,7 +46,7 @@ async def test_error_hook_records_and_publishes():
 
 
 async def test_retains_mflow_and_replays():
-    addon = Proxino()
+    addon = Mitmboard()
     async def noop(evt): pass
     addon.broadcaster.publish = noop
     with taddons.context(addon) as tctx:
@@ -63,7 +63,7 @@ async def test_retains_mflow_and_replays():
         assert addon.replay("nope") is False
 
 async def test_request_hook_streams_pending_then_completes_in_place():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -83,7 +83,7 @@ async def test_request_hook_streams_pending_then_completes_in_place():
         assert len(addon.store) == 1          # updated in place, not duplicated
 
 async def test_replay_edited_applies_edits_to_a_clone():
-    addon = Proxino()
+    addon = Mitmboard()
     async def noop(evt): pass
     addon.broadcaster.publish = noop
     with taddons.context(addon) as tctx:
@@ -109,7 +109,7 @@ async def test_replay_edited_applies_edits_to_a_clone():
         assert f.request.method == "GET"            # original untouched
 
 async def test_tls_clienthello_ignores_only_when_should_ignore():
-    addon = Proxino()
+    addon = Mitmboard()
     with taddons.context(addon):
         data = _hello_data("plain.example.com")
         addon.tls_clienthello(data)
@@ -122,7 +122,7 @@ async def test_tls_clienthello_ignores_only_when_should_ignore():
 
 
 async def test_tls_failed_client_flips_after_threshold_and_publishes():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -142,7 +142,7 @@ async def test_tls_failed_client_flips_after_threshold_and_publishes():
 
 
 async def test_tls_failed_client_with_no_sni_is_noop():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -157,7 +157,7 @@ async def test_tls_failed_client_peername_none_records_unknown():
     # mitmproxy can hand us a client_conn with no peername yet (e.g. very
     # early failure). Must not raise, and should record the client as
     # "unknown" rather than crashing the hook.
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -172,7 +172,7 @@ async def test_tls_failed_client_peername_none_records_unknown():
 async def test_tls_failed_client_missing_client_does_not_raise():
     # A hook exception in mitmproxy kills the connection outright, so a
     # malformed/partial `data.context` must be swallowed, not raised.
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -184,7 +184,7 @@ async def test_tls_failed_client_missing_client_does_not_raise():
 
 
 async def test_tls_clienthello_missing_client_does_not_raise():
-    addon = Proxino()
+    addon = Mitmboard()
     with taddons.context(addon):
         data = SimpleNamespace(context=SimpleNamespace())  # no .client at all
         addon.tls_clienthello(data)  # must not raise
@@ -194,7 +194,7 @@ async def test_tls_clienthello_missing_client_does_not_raise():
 async def test_tls_clienthello_passes_client_ip_for_config_hosts():
     # Config-sourced entries should get real `clients`, not an empty list —
     # tls_clienthello must forward the peer IP into should_ignore().
-    addon = Proxino()
+    addon = Mitmboard()
     addon.passthrough._patterns.append("pinned.example.com")
     with taddons.context(addon):
         data = _hello_data("pinned.example.com", ip="7.7.7.7")
@@ -205,7 +205,7 @@ async def test_tls_clienthello_passes_client_ip_for_config_hosts():
 
 
 async def test_mflow_map_evicts_with_capacity():
-    addon = Proxino()
+    addon = Mitmboard()
     addon.store.capacity = 2
     addon._mflow_cap = 2
     import asyncio
@@ -225,7 +225,7 @@ async def test_modified_set_discards_evicted_flow_id():
     # `_modified` tracks flow ids edited at a breakpoint; once the underlying
     # mflow is evicted from `_mflows` under capacity, the id must not linger
     # in `_modified` forever.
-    addon = Proxino()
+    addon = Mitmboard()
     addon.store.capacity = 1
     addon._mflow_cap = 1
     async def noop(evt): pass
@@ -242,7 +242,7 @@ async def test_modified_set_discards_evicted_flow_id():
 
 
 async def test_clear_also_clears_modified_set():
-    addon = Proxino()
+    addon = Mitmboard()
     with taddons.context(addon):
         f = tflow.tflow(resp=True); f.client_conn.peername = ("1.1.1.1", 1)
         addon.response(f)
@@ -261,7 +261,7 @@ def _ws_flow():
     return f
 
 async def test_websocket_lifecycle_events_and_store():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -285,7 +285,7 @@ async def test_websocket_lifecycle_events_and_store():
     assert addon.store.get(f.id).kind == "ws"
 
 async def test_websocket_message_count_updates_are_throttled():
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -306,7 +306,7 @@ async def test_open_ws_flow_survives_newer_http_flows_under_cap():
     # An open websocket that keeps receiving frames must not be evicted from
     # _mflows just because it went quiet at the LRU end while newer http
     # flows push it out -- every touch (start/message) should refresh it.
-    addon = Proxino()
+    addon = Mitmboard()
     addon._mflow_cap = 3
     async def fake_publish(evt): pass
     addon.broadcaster.publish = fake_publish
@@ -324,7 +324,7 @@ async def test_open_ws_flow_survives_newer_http_flows_under_cap():
     assert total == 3 and len(msgs) == 3
 
 async def test_ws_frames_evicted_with_flow():
-    addon = Proxino()
+    addon = Mitmboard()
     addon._mflow_cap = 1
     async def fake_publish(evt): pass
     addon.broadcaster.publish = fake_publish
@@ -339,7 +339,7 @@ class _WS:
     async def send_json(self, d): pass
 
 async def test_request_breakpoint_pauses_and_resume_applies_edits(tmp_path, monkeypatch):
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -359,7 +359,7 @@ async def test_request_breakpoint_pauses_and_resume_applies_edits(tmp_path, monk
     assert published[-1]["type"] == "breakpoint.resumed"
 
 async def test_no_pause_without_ui_clients(monkeypatch):
-    addon = Proxino()
+    addon = Mitmboard()
     async def fake_publish(evt): pass
     addon.broadcaster.publish = fake_publish
     monkeypatch.setattr(addon.registry, "breakpoints", lambda: {"enabled": True, "rules": [{"id": "r"}]})
@@ -369,7 +369,7 @@ async def test_no_pause_without_ui_clients(monkeypatch):
     assert not f.intercepted
 
 async def test_response_breakpoint_edit_status_and_drop(monkeypatch):
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -391,7 +391,7 @@ async def test_response_breakpoint_edit_status_and_drop(monkeypatch):
     assert dropped is not None and published[-1]["type"] == "breakpoint.dropped"
 
 async def test_sweep_publishes_timeout(monkeypatch):
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish
@@ -411,7 +411,7 @@ async def test_clear_resumes_paused_flows(monkeypatch):
     # (so it's no longer intercepted at mitmproxy's level) and tell any
     # connected UI via breakpoint.resumed, since the flow's /api/paused
     # entry is about to vanish along with the cleared store.
-    addon = Proxino()
+    addon = Mitmboard()
     published = []
     async def fake_publish(evt): published.append(evt)
     addon.broadcaster.publish = fake_publish

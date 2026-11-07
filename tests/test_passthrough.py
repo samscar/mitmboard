@@ -1,4 +1,4 @@
-from proxino.passthrough import PassthroughRegistry
+from mitmboard.passthrough import PassthroughRegistry
 
 
 def test_below_threshold_does_not_flip():

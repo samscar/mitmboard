@@ -1,5 +1,5 @@
 import pytest
-from proxino.breakpoints import BreakpointRule, match_rule
+from mitmboard.breakpoints import BreakpointRule, match_rule
 
 R = lambda **kw: BreakpointRule(id=kw.pop("id", "r1"), **kw)
 
@@ -29,7 +29,7 @@ def test_from_dict_validates():
     assert BreakpointRule.from_dict({"id": "x", "method": "post"}).method == "POST"
 
 from types import SimpleNamespace
-from proxino.breakpoints import BreakpointEngine
+from mitmboard.breakpoints import BreakpointEngine
 
 class FakeFlow:
     def __init__(self, fid="f1", killable=True, is_replay=False):

@@ -1,4 +1,4 @@
-from proxino.models import Flow
+from mitmboard.models import Flow
 
 def make_flow(**over):
     base = dict(

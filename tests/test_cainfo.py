@@ -1,5 +1,5 @@
 from pathlib import Path
-from proxino.cainfo import ca_info
+from mitmboard.cainfo import ca_info
 
 _PEM = """-----BEGIN CERTIFICATE-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0Z0Z0Z0Z0Z0Z0Z0Z0Z0Z

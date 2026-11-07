@@ -43,7 +43,7 @@ export function TopBar({ onConnect }: { onConnect: () => void }) {
   }, []);
 
   const handleSave = () => {
-    download("/api/session", "proxino-session.json");
+    download("/api/session", "mitmboard-session.json");
     setMenuOpen(false);
   };
 
@@ -64,12 +64,12 @@ export function TopBar({ onConnect }: { onConnect: () => void }) {
   };
 
   const handleExportHar = () => {
-    download("/api/export/har", "proxino.har");
+    download("/api/export/har", "mitmboard.har");
     setMenuOpen(false);
   };
 
   const handleClear = async () => {
-    try { await clearFlows(); } catch { console.warn("[proxino] clear failed"); }
+    try { await clearFlows(); } catch { console.warn("[mitmboard] clear failed"); }
     clear();
     setMenuOpen(false);
   };
@@ -77,7 +77,7 @@ export function TopBar({ onConnect }: { onConnect: () => void }) {
   return (
     <div className="topbar" data-tauri-drag-region="true">
       <div className="topbar-left">
-        <span className="brand" data-tauri-drag-region="true">Proxino<span className="beta">BETA</span></span>
+        <span className="brand" data-tauri-drag-region="true">Mitmboard<span className="beta">BETA</span></span>
         <span className="tb-status"><span className="tb-dot live" />Listening
           <code className="tb-addr">{proxy ?? "…"}</code></span>
         <span className="tb-status"><span className="tb-dot rec" />Recording</span>

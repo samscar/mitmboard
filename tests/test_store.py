@@ -1,4 +1,4 @@
-from proxino.store import FlowStore
+from mitmboard.store import FlowStore
 from tests.test_models import make_flow
 
 def test_add_get_and_meta_list():
@@ -27,7 +27,7 @@ def test_client_counts_and_clear():
     assert len(s) == 0 and s.client_counts() == {}
 
 def test_update_preserves_request_order():
-    from proxino.store import FlowStore
+    from mitmboard.store import FlowStore
     from tests.test_models import make_flow
     s = FlowStore()
     s.add(make_flow(id="a"))

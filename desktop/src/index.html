@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Proxino</title>
+    <title>Mitmboard</title>
     <style>
       html, body { margin: 0; height: 100%; background: #0e1016; color: #e7eaf0;
         font-family: -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
@@ -24,11 +24,11 @@
   <body>
     <div class="wrap">
       <div class="logo"><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span></div>
-      <div class="name"><b>Proxino</b></div>
+      <div class="name"><b>Mitmboard</b></div>
       <div class="status" id="status"><span class="dot"></span><span id="status-text">Starting the capture engine…</span></div>
     </div>
     <script>
-      window.__proxinoStatus = function (msg, isError) {
+      window.__mitmboardStatus = function (msg, isError) {
         var text = document.getElementById("status-text");
         var box = document.getElementById("status");
         text.textContent = msg;

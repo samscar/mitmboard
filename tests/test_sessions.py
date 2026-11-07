@@ -1,5 +1,5 @@
-from proxino.sessions import dump_session, load_session
-from proxino.store import FlowStore
+from mitmboard.sessions import dump_session, load_session
+from mitmboard.store import FlowStore
 from tests.test_models import make_flow
 
 def test_dump_then_load_roundtrips_with_bodies():

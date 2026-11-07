@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import deque
 import msgpack
-from proxino.decode import decode_body, MAX_DECODE, MAX_PRETTY
+from mitmboard.decode import decode_body, MAX_DECODE, MAX_PRETTY
 
 MAX_TEXT = 65536
 DEFAULT_CAP = 500

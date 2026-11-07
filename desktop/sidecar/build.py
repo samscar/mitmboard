@@ -3,7 +3,7 @@
 Usage: python desktop/sidecar/build.py [--skip-web]
 Requires: a Python 3.12 interpreter (uses `uv` if available), Node, Rust (for
 the target triple), and network access for pip.
-Output: desktop/src-tauri/binaries/proxino-backend-<triple>[.exe]
+Output: desktop/src-tauri/binaries/mitmboard-backend-<triple>[.exe]
 """
 from __future__ import annotations
 import argparse
@@ -48,7 +48,7 @@ def python312_cmd() -> list[str]:
 
 
 def build_python() -> Path:
-    """Return a python executable inside a 3.12 env with proxino[desktop] installed."""
+    """Return a python executable inside a 3.12 env with mitmboard[desktop] installed."""
     venv = SIDECAR / ".venv"
     py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     has_uv = shutil.which("uv") is not None
@@ -84,12 +84,12 @@ def main() -> None:
     py = build_python()
     run([str(py), "-m", "PyInstaller", "--noconfirm", "--clean",
          "--distpath", str(SIDECAR / "dist"), "--workpath", str(SIDECAR / "build"),
-         str(SIDECAR / "proxino-backend.spec")], cwd=ROOT)
+         str(SIDECAR / "mitmboard-backend.spec")], cwd=ROOT)
 
     ext = ".exe" if os.name == "nt" else ""
-    built = SIDECAR / "dist" / f"proxino-backend{ext}"
+    built = SIDECAR / "dist" / f"mitmboard-backend{ext}"
     BIN_DIR.mkdir(parents=True, exist_ok=True)
-    dest = BIN_DIR / f"proxino-backend-{target_triple()}{ext}"
+    dest = BIN_DIR / f"mitmboard-backend-{target_triple()}{ext}"
     shutil.copy2(built, dest)
     if ext == "":
         dest.chmod(0o755)

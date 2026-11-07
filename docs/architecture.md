@@ -1,28 +1,28 @@
 # Architecture
 
-Proxino has three layers: a **mitmproxy addon** that captures traffic, a **FastAPI backend** that exposes it, and a **React web UI** that renders it. All three run in one process on `127.0.0.1`; a desktop shell (`desktop/`, Tauri) bundles that process as a native app.
+Mitmboard has three layers: a **mitmproxy addon** that captures traffic, a **FastAPI backend** that exposes it, and a **React web UI** that renders it. All three run in one process on `127.0.0.1`; a desktop shell (`desktop/`, Tauri) bundles that process as a native app.
 
-<p align="center"><img src="media/architecture.svg" alt="Client → mitmproxy (:8080) → Proxino addon → FastAPI (:8081) → React web UI, with the addon reading ~/.proxino/config.json." width="820"></p>
+<p align="center"><img src="media/architecture.svg" alt="Client → mitmproxy (:8080) → Mitmboard addon → FastAPI (:8081) → React web UI, with the addon reading ~/.mitmboard/config.json." width="820"></p>
 
 > The diagram is editable: open [`architecture.excalidraw`](architecture.excalidraw) in [Excalidraw](https://excalidraw.com) and re‑export `media/architecture.svg`.
 
-## 1. Capture — the mitmproxy addon (`proxino/addon.py`)
+## 1. Capture — the mitmproxy addon (`mitmboard/addon.py`)
 
-Proxino runs as a standard mitmproxy addon loaded by `mitmdump`. mitmproxy terminates TLS with its own CA and re‑encrypts to the origin, so decrypted flows are available to the addon's hooks.
+Mitmboard runs as a standard mitmproxy addon loaded by `mitmdump`. mitmproxy terminates TLS with its own CA and re‑encrypts to the origin, so decrypted flows are available to the addon's hooks.
 
 - On `request` a pending row is streamed (`flow.new`); on `response` / `error` the addon converts the mitmproxy `HTTPFlow` into a plain `Flow` record (`transform.py`) and stores it in an in‑memory ring buffer (`store.py`, capped at 5000, oldest evicted), broadcasting `flow.complete` / `flow.error`.
 - Original mitmproxy flow objects are retained (bounded) so **Replay** and **Edit‑and‑Resend** can re‑issue them; the edit logic lives in `apply_request_edits` / `apply_response_edits`.
 - When mitmproxy finishes starting (`running` hook), the addon boots the FastAPI app on a uvicorn server bound to `127.0.0.1`, and starts a 1 s breakpoint sweep task.
 
-`cli.py` translates Proxino's own flags (`--proxy-port` / `--web-port`, env `PROXINO_*`) into `mitmdump` argv and always loads the addon. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
+`cli.py` translates Mitmboard's own flags (`--proxy-port` / `--web-port`, env `MITMBOARD_*`) into `mitmdump` argv and always loads the addon. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
 
 ### TLS passthrough for pinned hosts (`passthrough.py`)
 
-Cert‑pinned apps drop the handshake rather than trust the proxy's cert. The `tls_failed_client` hook feeds a `PassthroughRegistry` that counts failures per SNI host; after two within a minute the host flips to passthrough. The `tls_clienthello` hook then sets `ignore_connection` for that host, so mitmproxy forwards it encrypted and untouched — the app keeps working, no HTTP flow is produced, and the host is surfaced via `passthrough.update`. Known hosts can be pre‑listed under `"passthrough_hosts"` in `~/.proxino/config.json`.
+Cert‑pinned apps drop the handshake rather than trust the proxy's cert. The `tls_failed_client` hook feeds a `PassthroughRegistry` that counts failures per SNI host; after two within a minute the host flips to passthrough. The `tls_clienthello` hook then sets `ignore_connection` for that host, so mitmproxy forwards it encrypted and untouched — the app keeps working, no HTTP flow is produced, and the host is surfaced via `passthrough.update`. Known hosts can be pre‑listed under `"passthrough_hosts"` in `~/.mitmboard/config.json`.
 
 ### Breakpoints (`breakpoints.py`)
 
-`BreakpointEngine` matches structured rules (host / path / method / phase, fnmatch globs) and pauses matching flows with `flow.intercept()` in the `request` / `response` hooks — but never for replays and never while no UI client is connected (`Broadcaster.client_count() == 0`), so an armed rule can't strand a device. A paused flow's record carries state `paused_request` / `paused_response`; `resume_paused` applies edits and continues, `drop_paused` kills it. A 1 s sweep auto‑continues anything paused longer than 60 s. Rules live under `"breakpoints"` in `~/.proxino/config.json`.
+`BreakpointEngine` matches structured rules (host / path / method / phase, fnmatch globs) and pauses matching flows with `flow.intercept()` in the `request` / `response` hooks — but never for replays and never while no UI client is connected (`Broadcaster.client_count() == 0`), so an armed rule can't strand a device. A paused flow's record carries state `paused_request` / `paused_response`; `resume_paused` applies edits and continues, `drop_paused` kills it. A 1 s sweep auto‑continues anything paused longer than 60 s. Rules live under `"breakpoints"` in `~/.mitmboard/config.json`.
 
 ### WebSocket frames (`wsstore.py`)
 
@@ -34,9 +34,9 @@ The `websocket_start` / `websocket_message` / `websocket_end` hooks mark the flo
 
 ### Device detection (`clients.py`)
 
-`ClientRegistry.device_for(ip, user_agent)` returns a `(label, kind)` pair and remembers the first device *kind* seen per IP, recognising browsers and native app HTTP stacks (`CFNetwork`/`Darwin` → iOS app, `okhttp`/`Dalvik` → Android app). Labels, passthrough hosts, and breakpoint rules are persisted atomically to `~/.proxino/config.json` with a read‑modify‑write that preserves the other keys.
+`ClientRegistry.device_for(ip, user_agent)` returns a `(label, kind)` pair and remembers the first device *kind* seen per IP, recognising browsers and native app HTTP stacks (`CFNetwork`/`Darwin` → iOS app, `okhttp`/`Dalvik` → Android app). Labels, passthrough hosts, and breakpoint rules are persisted atomically to `~/.mitmboard/config.json` with a read‑modify‑write that preserves the other keys.
 
-## 2. API — the FastAPI backend (`proxino/server.py`)
+## 2. API — the FastAPI backend (`mitmboard/server.py`)
 
 `make_app(store, registry, broadcaster, ...)` builds the app. Key endpoints:
 
@@ -53,7 +53,7 @@ The `websocket_start` / `websocket_message` / `websocket_end` hooks mark the flo
 | GET    | `/api/paused`                     | currently paused flows (with a snapshot)    |
 | POST   | `/api/paused/{id}/resume` · `/drop` | continue (with optional edits) · drop     |
 | GET    | `/api/export/har`                 | HAR 1.2 export                              |
-| GET/POST | `/api/session`                  | save / load a Proxino JSON session          |
+| GET/POST | `/api/session`                  | save / load a Mitmboard JSON session          |
 | GET    | `/api/connect-info` · `/api/ca-info` | proxy address · CA fingerprint           |
 | WS     | `/ws`                             | live event stream                           |
 
@@ -69,7 +69,7 @@ The built web UI (`web/dist`) is mounted at `/` when present. Endpoints that pub
 - **Viewers:** `JsonView` renders a collapsible, syntax‑highlighted tree plus a line‑numbered raw view, a format badge for decoded bodies, and a sandboxed Preview iframe; `WsMessages` streams WebSocket frames; `Timing` draws the per‑phase waterfall.
 - **Components** map to UI regions: `TopBar`, `FilterBar`, `ClientsSidebar`, `FlowTable`, `DetailPane`, `StatusBar`, the `Devices` and `Dashboard` views, and modals (`ConnectDeviceModal`, `ReplayModal`, `Settings`, `BreakpointsModal`); paused flows edit inline via `PausedEditor` (sharing `HeaderRowsEditor` with `ReplayModal`).
 
-## Data model (`proxino/models.py`)
+## Data model (`mitmboard/models.py`)
 
 A `Flow` carries request/response metadata, a `ClientRef` (ip, label, kind), `server_addr`, `tls_version`, a `Timing` breakdown (connect / TLS / TTFB / download), a `kind` (`http` / `ws`) with a `ws` summary, and a `modified` flag set when a breakpoint edit was applied. Request/response bodies carry `body_view` / `body_pretty` from the decoders. `Flow.meta()` returns the list‑view projection (bodies stripped) used by `/api/flows` and the WebSocket events.
 

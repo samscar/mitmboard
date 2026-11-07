@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://github.com/anthibo/proxino",
+  "source": "https://github.com/anthibo/mitmboard",
   "elements": [
     {
       "id": "a",
@@ -186,13 +186,13 @@
       "updated": 1,
       "link": null,
       "locked": false,
-      "text": "Proxino addon\n\nflow store · devices\npassthrough · breakpoints\nWebSocket frames",
+      "text": "Mitmboard addon\n\nflow store · devices\npassthrough · breakpoints\nWebSocket frames",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": null,
-      "originalText": "Proxino addon\n\nflow store · devices\npassthrough · breakpoints\nWebSocket frames",
+      "originalText": "Mitmboard addon\n\nflow store · devices\npassthrough · breakpoints\nWebSocket frames",
       "lineHeight": 1.25
     },
     {
@@ -250,13 +250,13 @@
       "updated": 1,
       "link": null,
       "locked": false,
-      "text": "~/.proxino/\nconfig.json\nlabels · rules · hosts",
+      "text": "~/.mitmboard/\nconfig.json\nlabels · rules · hosts",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": null,
-      "originalText": "~/.proxino/\nconfig.json\nlabels · rules · hosts",
+      "originalText": "~/.mitmboard/\nconfig.json\nlabels · rules · hosts",
       "lineHeight": 1.25
     },
     {

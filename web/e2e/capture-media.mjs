@@ -1,12 +1,12 @@
 // Captures docs/media/hero.png and docs/media/demo.webm from a live backend.
-// Usage: PROXINO_URL=http://127.0.0.1:8081 node e2e/capture-media.mjs
+// Usage: MITMBOARD_URL=http://127.0.0.1:8081 node e2e/capture-media.mjs
 // (backend must already be running with demo traffic present)
 import { chromium } from "@playwright/test";
 import { mkdirSync, readdirSync, renameSync } from "node:fs";
 
 const OUT = new URL("../../docs/media/", import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
-const BASE = process.env.PROXINO_URL ?? "http://127.0.0.1:8081";
+const BASE = process.env.MITMBOARD_URL ?? "http://127.0.0.1:8081";
 const size = { width: 1400, height: 880 };
 
 const browser = await chromium.launch();

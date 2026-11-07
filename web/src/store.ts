@@ -5,8 +5,8 @@ import { parseQuery } from "./filters/dsl";
 export type View = "inspector" | "devices" | "dashboard";
 export type ListMode = "sequence" | "structure";
 
-const DETAIL_WIDTH_KEY = "proxino.detailWidth";
-const LIST_MODE_KEY = "proxino.listMode";
+const DETAIL_WIDTH_KEY = "mitmboard.detailWidth";
+const LIST_MODE_KEY = "mitmboard.listMode";
 const DEFAULT_DETAIL_WIDTH = 420;
 
 function loadListMode(): ListMode {

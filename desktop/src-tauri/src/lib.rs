@@ -29,7 +29,7 @@ fn port_open(port: u16) -> bool {
 fn set_status(handle: &tauri::AppHandle, msg: &str, is_error: bool) {
     if let Some(win) = handle.get_webview_window("main") {
         let js = format!(
-            "window.__proxinoStatus && window.__proxinoStatus({}, {})",
+            "window.__mitmboardStatus && window.__mitmboardStatus({}, {})",
             serde_json::to_string(msg).unwrap_or_else(|_| "\"\"".into()),
             is_error
         );
@@ -39,7 +39,7 @@ fn set_status(handle: &tauri::AppHandle, msg: &str, is_error: bool) {
 
 /// Like `set_status`, but retries for a couple of seconds. Used right after
 /// `setup()` starts, when the splash page's own inline script (which defines
-/// `window.__proxinoStatus`) may not have finished loading yet — a bare
+/// `window.__mitmboardStatus`) may not have finished loading yet — a bare
 /// `eval` in that window would silently no-op.
 fn set_status_retrying(handle: tauri::AppHandle, msg: String) {
     std::thread::spawn(move || {
@@ -114,13 +114,13 @@ pub fn run() {
             // in-window error message this is all here to provide.
             let spawn_result = (|| -> Result<_, tauri_plugin_shell::Error> {
                 app.shell()
-                    .sidecar("proxino-backend")?
+                    .sidecar("mitmboard-backend")?
                     .args([
                         "--proxy-port", &proxy_port.to_string(),
                         "--web-port", &web_port.to_string(),
                         "--set", "termlog_verbosity=warn",
                     ])
-                    .env("PROXINO_NO_BROWSER", "1")
+                    .env("MITMBOARD_NO_BROWSER", "1")
                     .spawn()
             })();
             let (mut rx, child) = match spawn_result {
@@ -129,7 +129,7 @@ pub fn run() {
                     set_status_retrying(
                         app.handle().clone(),
                         format!(
-                            "Could not start the capture engine.\n\n{e}\n\nQuit and reinstall Proxino; if it keeps happening, open an issue on GitHub."
+                            "Could not start the capture engine.\n\n{e}\n\nQuit and reinstall Mitmboard; if it keeps happening, open an issue on GitHub."
                         ),
                     );
                     return Ok(());
@@ -190,7 +190,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building Proxino")
+        .expect("error while building Mitmboard")
         .run(|handle, event| match event {
             tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => kill_backend(handle),
             _ => {}

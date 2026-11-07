@@ -1,7 +1,7 @@
 import json
 import time
-from proxino.wsstore import WsStore, MAX_TEXT
-from proxino.decode import MAX_DECODE, MAX_PRETTY
+from mitmboard.wsstore import WsStore, MAX_TEXT
+from mitmboard.decode import MAX_DECODE, MAX_PRETTY
 
 def test_append_text_and_binary_and_index():
     s = WsStore()

@@ -14,9 +14,9 @@ export const connectWS = (
     sock = new WebSocket(url);
     sock.onopen = () => { attempt = 0; if (isReconnect) onReconnect?.(); };
     sock.onmessage = (m) => onEvent(JSON.parse(m.data));
-    sock.onerror = () => console.warn("[proxino] websocket error");
+    sock.onerror = () => console.warn("[mitmboard] websocket error");
     sock.onclose = () => {
-      console.warn("[proxino] websocket closed");
+      console.warn("[mitmboard] websocket closed");
       if (closedByUser) return;
       const delay = backoff[Math.min(attempt, backoff.length - 1)];
       attempt++;

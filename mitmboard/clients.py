@@ -96,7 +96,7 @@ class ClientRegistry:
         return {"enabled": bool(data.get("enabled", True)), "rules": rules}
 
     def set_breakpoints(self, data: dict) -> None:
-        from proxino.breakpoints import BreakpointRule
+        from mitmboard.breakpoints import BreakpointRule
         rules = [BreakpointRule.from_dict(r).to_dict() for r in data.get("rules", [])]
         for r in rules:
             # An *enabled* rule with no host/path/method would match every
@@ -116,7 +116,7 @@ class ClientRegistry:
         return {"enabled": bool(data.get("enabled", True)), "rules": rules}
 
     def set_map_local(self, data: dict) -> None:
-        from proxino.maplocal import MapLocalRule
+        from mitmboard.maplocal import MapLocalRule
         rules = [MapLocalRule.from_dict(r).to_dict() for r in data.get("rules", [])]
         for r in rules:
             # Unlike a breakpoint, a method-only Map Local rule would shadow

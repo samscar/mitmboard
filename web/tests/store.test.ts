@@ -61,9 +61,9 @@ describe("store.detailWidth", () => {
     expect(useStore.getState().detailWidth).toBe(600);
     Object.defineProperty(window, "innerWidth", { value: originalInnerWidth, configurable: true });
   });
-  it("persists to localStorage under proxino.detailWidth", () => {
+  it("persists to localStorage under mitmboard.detailWidth", () => {
     useStore.getState().setDetailWidth(500);
-    expect(localStorage.getItem("proxino.detailWidth")).toBe("500");
+    expect(localStorage.getItem("mitmboard.detailWidth")).toBe("500");
   });
 });
 

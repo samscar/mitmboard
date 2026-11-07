@@ -1,7 +1,7 @@
-"""`proxino` console entry point and the desktop sidecar entry.
+"""`mitmboard` console entry point and the desktop sidecar entry.
 
-Translates Proxino's own flags into mitmdump arguments and always loads the
-addon, so `proxino`, `proxino --proxy-port 9090`, and the frozen sidecar all
+Translates Mitmboard's own flags into mitmdump arguments and always loads the
+addon, so `mitmboard`, `mitmboard --proxy-port 9090`, and the frozen sidecar all
 behave the same. Any other argument is passed through to mitmdump untouched.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import os
 import sys
 from collections.abc import Mapping
 
-from proxino.paths import addon_path
+from mitmboard.paths import addon_path
 
 DEFAULT_PROXY_PORT = 8080
 DEFAULT_WEB_PORT = 8081
@@ -26,21 +26,21 @@ def _has_option(rest: list[str], names: tuple[str, ...]) -> bool:
 
 
 def build_argv(argv: list[str], env: Mapping[str, str]) -> list[str]:
-    parser = argparse.ArgumentParser(prog="proxino", add_help=False, allow_abbrev=False)
+    parser = argparse.ArgumentParser(prog="mitmboard", add_help=False, allow_abbrev=False)
     parser.add_argument("--proxy-port", type=int,
-                        default=int(env.get("PROXINO_PROXY_PORT", DEFAULT_PROXY_PORT)))
+                        default=int(env.get("MITMBOARD_PROXY_PORT", DEFAULT_PROXY_PORT)))
     parser.add_argument("--web-port", type=int,
-                        default=int(env.get("PROXINO_WEB_PORT", DEFAULT_WEB_PORT)))
+                        default=int(env.get("MITMBOARD_WEB_PORT", DEFAULT_WEB_PORT)))
     ns, rest = parser.parse_known_args(argv)
     out = list(rest)
-    # Always load Proxino's own addon: it serves the web UI, so dropping it
+    # Always load Mitmboard's own addon: it serves the web UI, so dropping it
     # silently removes the entire interface. Guard only against duplicates.
     addon = str(addon_path())
     if addon not in rest:
         out += ["-s", addon]
     if not _has_option(rest, ("-p", "--listen-port")):
         out += ["-p", str(ns.proxy_port)]
-    out += ["--set", f"proxino_web_port={ns.web_port}"]
+    out += ["--set", f"mitmboard_web_port={ns.web_port}"]
     return out
 
 

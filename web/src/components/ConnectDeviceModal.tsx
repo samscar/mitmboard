@@ -56,10 +56,10 @@ export function ConnectDeviceModal({ onClose }: { onClose: () => void }) {
                 </div>
               </li>
               <li>
-                Open <a href={info?.cert_url}>{info?.cert_url ?? "…"}</a> (or scan the code) and install the Proxino CA.
+                Open <a href={info?.cert_url}>{info?.cert_url ?? "…"}</a> (or scan the code) and install the Mitmboard CA.
               </li>
               {platform === "ios" ? (
-                <li>Settings → General → About → Certificate Trust Settings → enable full trust for Proxino.</li>
+                <li>Settings → General → About → Certificate Trust Settings → enable full trust for Mitmboard.</li>
               ) : (
                 <li>Settings → Security → Install a certificate → CA certificate → pick the downloaded file.</li>
               )}

@@ -37,6 +37,6 @@ def _entry(f: Flow) -> dict:
 def flows_to_har(flows: list[Flow]) -> dict:
     return {"log": {
         "version": "1.2",
-        "creator": {"name": "Proxino", "version": "0.1.0"},
+        "creator": {"name": "Mitmboard", "version": "0.1.0"},
         "entries": [_entry(f) for f in flows],
     }}

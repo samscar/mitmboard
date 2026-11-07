@@ -6,7 +6,7 @@ export function EmptyState({ onConnect }: { onConnect: () => void }) {
   useEffect(() => { fetchConnectInfo().then((i) => setProxy(i.proxy_hint)).catch(() => {}); }, []);
   const steps = [
     ["1", "Set the Wi-Fi proxy", `Point your device at ${proxy ?? "this Mac"}`],
-    ["2", "Install the CA cert", "Open mitm.it and trust the Proxino root"],
+    ["2", "Install the CA cert", "Open mitm.it and trust the Mitmboard root"],
     ["3", "Use your apps", "HTTPS calls are decrypted and listed here"],
   ];
   return (
@@ -16,7 +16,7 @@ export function EmptyState({ onConnect }: { onConnect: () => void }) {
           <span className="es-bar b1" /><span className="es-bar b2" /><span className="es-bar b3" />
         </div>
         <div className="es-title">Waiting for traffic</div>
-        <div className="es-sub">Connect a device to Proxino and start making requests.<br />They’ll appear here live as they happen.</div>
+        <div className="es-sub">Connect a device to Mitmboard and start making requests.<br />They’ll appear here live as they happen.</div>
         <button className="chip primary es-cta" onClick={onConnect}>Connect a device</button>
         <div className="es-steps">
           {steps.map((s) => (

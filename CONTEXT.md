@@ -1,6 +1,6 @@
-# mitmproxy-ui
+# Mitmboard
 
-在 mitmproxy 之上构建 Charles 式的手机抓包工作台，目标是让 AI agent 与人工调试能在同一端口、同一台机器上并行工作。本文件只定义术语，不含实现。
+在 mitmproxy 之上构建 Charles 式的手机抓包工作台，目标是让 AI agent 与人工调试能在同一端口、同一台机器上并行工作。产品名为 Mitmboard（仓库目录仍为 `mitmproxy-ui`）。本文件只定义术语，不含实现。
 
 ## 设备与路由
 
