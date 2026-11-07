@@ -6,7 +6,7 @@
 
 ### Issue tracker
 
-issue 以 markdown 文件存放在 `.scratch/<feature-slug>/` 下，一票一文件。详见 `docs/agents/issue-tracker.md`。
+issue 以 markdown 文件存放在 `scratch/<feature-slug>/` 下，一票一文件。详见 `docs/agents/issue-tracker.md`。
 
 ### Triage labels
 

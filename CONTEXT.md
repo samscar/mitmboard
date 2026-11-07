@@ -4,6 +4,10 @@
 
 ## 设备与路由
 
+**设备**：
+以来源 IP 区分的一个抓包来源，如一部手机、一台电脑或一个模拟器。
+_Avoid_: Client、客户端
+
 **agent 侧**：
 由 `agent-device` 驱动、需要按规则返回 mock 数据的那一侧。
 _Avoid_: 自动化侧、测试侧、CI 侧
@@ -47,6 +51,10 @@ _Avoid_: 树视图、域名树、分组视图
 **Sequence 视图**：
 按时间顺序平铺全部流量的列表视图。
 _Avoid_: 列表、扁平视图、时间线
+
+**Focus**：
+把某个 host 或路径前缀设为关注对象；其余流量不删除，在 Structure 视图收进 Other Hosts，在 Sequence 视图可通过 Focused 开关隐藏。
+_Avoid_: 聚焦、筛选
 
 ## 环境
 
