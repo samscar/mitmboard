@@ -4,7 +4,7 @@ import logging
 import time
 from collections import OrderedDict
 from pathlib import Path
-from mitmproxy import ctx
+from mitmproxy import ctx, http
 from mitmproxy.addonmanager import Loader
 from mitmproxy.http import HTTPFlow, Headers
 from proxino.store import FlowStore
@@ -14,6 +14,7 @@ from proxino.transform import flow_to_record
 from proxino.passthrough import PassthroughRegistry
 from proxino.wsstore import WsStore
 from proxino.breakpoints import BreakpointEngine
+from proxino.maplocal import MapLocalEngine, MapLocalFileError
 
 _log = logging.getLogger("proxino")
 
@@ -68,6 +69,7 @@ class Proxino:
         # -- is honored; a captured bound method would freeze to whatever
         # `breakpoints` resolved to at this line and ignore later rebinding.
         self.breakpoints = BreakpointEngine(lambda: self.registry.breakpoints())
+        self.maplocal = MapLocalEngine(lambda: self.registry.map_local())
         self._modified: set[str] = set()
 
     def load(self, loader: Loader) -> None:
@@ -135,6 +137,32 @@ class Proxino:
         self._retain(flow)
         self._publish({"type": evt_type, "flow": rec.meta()})
 
+    def _apply_map_local(self, flow: HTTPFlow) -> bool:
+        """Replace the response from a local file. Returns True if it fired.
+
+        A missing or unreadable file becomes a visible 500 rather than a silent
+        pass-through: the whole point of a Map Local rule is that the request
+        must NOT reach the server, so letting it through would quietly test
+        against production data instead of the mock.
+        """
+        if getattr(flow, "response", None) is not None:
+            return False
+        try:
+            hit = self.maplocal.payload_for(flow)
+        except MapLocalFileError as e:
+            _log.error("proxino map local: %s", e)
+            flow.response = http.Response.make(
+                500,
+                f"Proxino Map Local: {e}\n".encode(),
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
+            return True
+        if hit is None:
+            return False
+        body, content_type, status = hit
+        flow.response = http.Response.make(status, body, {"Content-Type": content_type})
+        return True
+
     def tls_clienthello(self, data) -> None:
         # A hook exception here kills the connection outright (mitmproxy
         # treats it as fatal), so any malformed/partial `data.context` must
@@ -170,6 +198,7 @@ class Proxino:
             _log.exception("proxino passthrough hook failed")
 
     def request(self, flow: HTTPFlow) -> None:
+        self._apply_map_local(flow)
         # Stream a pending row the moment a request starts, so in-flight and
         # failed requests appear immediately (not only on response).
         self._emit("flow.new", flow)

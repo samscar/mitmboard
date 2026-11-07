@@ -109,3 +109,20 @@ class ClientRegistry:
         cfg = self._read_config()
         cfg["breakpoints"] = {"enabled": bool(data.get("enabled", True)), "rules": rules}
         self._write_config(cfg)
+
+    def map_local(self) -> dict:
+        data = self._read_config().get("map_local") or {}
+        rules = [r for r in data.get("rules", []) if isinstance(r, dict)]
+        return {"enabled": bool(data.get("enabled", True)), "rules": rules}
+
+    def set_map_local(self, data: dict) -> None:
+        from proxino.maplocal import MapLocalRule
+        rules = [MapLocalRule.from_dict(r).to_dict() for r in data.get("rules", [])]
+        for r in rules:
+            # Unlike a breakpoint, a method-only Map Local rule would shadow
+            # every request of that method with one file -- never intended.
+            if r["enabled"] and not (r["host"] or r["path"]):
+                raise ValueError("a rule needs a host or a path")
+        cfg = self._read_config()
+        cfg["map_local"] = {"enabled": bool(data.get("enabled", True)), "rules": rules}
+        self._write_config(cfg)

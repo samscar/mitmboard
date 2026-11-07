@@ -9,7 +9,7 @@ v1 的验收标准是「我日常在 Charles 里的四个动作能跑通」，�
 | SSL Proxying | mitmproxy 内核 | 已有（含 pinned host 自动直通） | 手机上的 App 显示明文响应 |
 | 断点 | Proxino `breakpoints.py` | 已有 | 命中规则后暂停、改 header 或 body、放行生效 |
 | Structure 视图 | 前端 + 既有 `/api/flows` | **待做** | 按 host 与路径层级展开，能定位到具体接口 |
-| Map Local | 新增 addon 钩子 + 前端 | **待做** | URL 通配匹配后返回指定本地文件，请求不到达真实服务器 |
+| Map Local | 新增 addon 钩子 + 前端 | 后端已完成，前端待做 | URL 通配匹配后返回指定本地文件，请求不到达真实服务器 |
 
 ## 明确不在范围内
 

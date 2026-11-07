@@ -27,6 +27,10 @@ class BreakpointsBody(BaseModel):
     enabled: bool = True
     rules: list[dict] = []
 
+class MapLocalBody(BaseModel):
+    enabled: bool = True
+    rules: list[dict] = []
+
 class ResumeBody(BaseModel):
     method: str | None = None
     url: str | None = None
@@ -183,6 +187,20 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
             raise HTTPException(status_code=422, detail=str(e))
         data = registry.breakpoints()
         await broadcaster.publish({"type": "breakpoints.update", **data})
+        return data
+
+    @app.get("/api/maplocal")
+    def get_maplocal() -> dict:
+        return registry.map_local()
+
+    @app.put("/api/maplocal")
+    async def put_maplocal(body: MapLocalBody) -> dict:
+        try:
+            registry.set_map_local(body.model_dump())
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        data = registry.map_local()
+        await broadcaster.publish({"type": "maplocal.update", **data})
         return data
 
     @app.get("/api/paused")
