@@ -71,6 +71,8 @@ describe("Map Local from a request row", () => {
     expect(screen.getByLabelText("Method")).toHaveValue("GET");
     expect(screen.getByLabelText("Status")).toHaveValue(200);
     expect(screen.getByText(/Query parameters are not part of the match/)).toBeInTheDocument();
+    // Choosing copies into the managed folder; typing a path references the file in place.
+    expect(screen.getByText(/copies it into Mitmboard's managed folder/)).toBeInTheDocument();
   });
 
   it("uses the captured response as the file and saves the new rule first in the list", async () => {

@@ -116,6 +116,10 @@ export function MapLocalDialog({ initial, flowId, onSave, onClose }: {
           </label>
         </div>
 
+        <p className="ml-hint">
+          Choosing a file copies it into Mitmboard's managed folder. To use a file where it already
+          lives — or one over 20 MB — type its absolute path.
+        </p>
         <p className="ml-hint">Query parameters are not part of the match: <code>?id=1</code> and <code>?id=2</code> hit the same rule.</p>
         {error && <div className="bp-error">{error}</div>}
 
