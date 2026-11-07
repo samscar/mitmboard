@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TopBar } from "./components/TopBar";
-import { FilterBar } from "./components/FilterBar";
-import { ClientsSidebar } from "./components/ClientsSidebar";
-import { FlowTable } from "./components/FlowTable";
-import { StructureTree } from "./components/StructureTree";
+import { ListPanel } from "./components/ListPanel";
 import { DetailPane } from "./components/DetailPane";
 import { StatusBar } from "./components/StatusBar";
 import { EmptyState } from "./components/EmptyState";
-import { DevicesView } from "./components/DevicesView";
-import { DashboardView } from "./components/DashboardView";
 import { ConnectDeviceModal } from "./components/ConnectDeviceModal";
 import { connectWS } from "./ws";
-import { fetchFlows, fetchPassthrough, fetchWsMessages, fetchBreakpoints, fetchPaused } from "./api";
+import { fetchFlows, fetchPassthrough, fetchWsMessages, fetchBreakpoints, fetchPaused, fetchMaplocal } from "./api";
 import { useStore } from "./store";
+import { clearSelection } from "./selection";
+import { isOverlayOpen, isTypingTarget } from "./keyboard";
 import "./theme.css";
 
 export function App() {
@@ -22,11 +19,10 @@ export function App() {
   const appendWsMessage = useStore((s) => s.appendWsMessage);
   const mergeWsMessages = useStore((s) => s.mergeWsMessages);
   const setBreakpoints = useStore((s) => s.setBreakpoints);
+  const setMaplocal = useStore((s) => s.setMaplocal);
   const setPaused = useStore((s) => s.setPaused);
   const addPaused = useStore((s) => s.addPaused);
   const removePaused = useStore((s) => s.removePaused);
-  const view = useStore((s) => s.view);
-  const listMode = useStore((s) => s.listMode);
   const isEmpty = useStore((s) => s.flows.size === 0);
   const detailWidth = useStore((s) => s.detailWidth);
   const setDetailWidth = useStore((s) => s.setDetailWidth);
@@ -68,10 +64,29 @@ export function App() {
     if ((w.__TAURI_INTERNALS__ || w.__TAURI__) && isMac) document.body.classList.add("in-tauri");
   }, []);
   useEffect(() => {
+    // Global shortcuts: ⌘/Ctrl+F jumps to the filter box, Escape walks back one
+    // layer -- Focus first, then selection -- the way Charles does.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        const input = document.querySelector<HTMLInputElement>(".filterbar .search");
+        if (input) { e.preventDefault(); input.focus(); input.select(); }
+        return;
+      }
+      if (e.key !== "Escape") return;
+      if (isOverlayOpen() || isTypingTarget(e.target)) return;
+      const state = useStore.getState();
+      if (state.focus.length > 0) { state.setFocus([]); return; }
+      clearSelection();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  useEffect(() => {
     const resync = () => {
       fetchFlows().then((fs) => fs.forEach(upsert)).catch(() => {});
       fetchPassthrough().then(setPassthrough).catch(() => {});
       fetchBreakpoints().then(setBreakpoints).catch(() => {});
+      fetchMaplocal().then(setMaplocal).catch(() => {});
       fetchPaused().then(setPaused).catch(() => {});
       // A reconnect can follow a dropped connection during which frames on
       // the currently open ws flow were missed, so re-pull its buffer too.
@@ -85,6 +100,7 @@ export function App() {
       (e) => {
         if (e.type === "flow.update") upsert(e.flow);
         else if (e.type === "breakpoints.update") setBreakpoints({ enabled: e.enabled, rules: e.rules });
+        else if (e.type === "maplocal.update") setMaplocal({ enabled: e.enabled, rules: e.rules });
         else if (e.type === "breakpoint.paused") addPaused(e.entry, e.flow);
         else if (e.type === "breakpoint.resumed" || e.type === "breakpoint.dropped" || e.type === "breakpoint.timeout") removePaused(e.flow_id);
         else if ("flow" in e) upsert(e.flow);
@@ -95,32 +111,24 @@ export function App() {
       },
       resync,
     );
-  }, [upsert, setPassthrough, appendWsMessage, mergeWsMessages, setBreakpoints, setPaused, addPaused, removePaused]);
+  }, [upsert, setPassthrough, appendWsMessage, mergeWsMessages, setBreakpoints, setPaused, addPaused, removePaused, setMaplocal]);
   return (
     <div className="app">
       <TopBar onConnect={() => setShowConnect(true)} />
-      {view === "inspector" && <FilterBar />}
       <div className="body">
-        {view === "inspector" ? (
-          <>
-            <ClientsSidebar />
-            {isEmpty ? <EmptyState onConnect={() => setShowConnect(true)} /> : (
-              <>
-                {listMode === "structure" ? <StructureTree /> : <FlowTable />}
-                <div
-                  className="splitter"
-                  role="separator"
-                  aria-orientation="vertical"
-                  onMouseDown={onSplitterMouseDown}
-                />
-                <DetailPane width={detailWidth} />
-              </>
-            )}
-          </>
-        ) : view === "devices" ? (
-          <DevicesView onConnect={() => setShowConnect(true)} />
+        {isEmpty ? (
+          <EmptyState onConnect={() => setShowConnect(true)} />
         ) : (
-          <DashboardView />
+          <>
+            <ListPanel />
+            <div
+              className="splitter"
+              role="separator"
+              aria-orientation="vertical"
+              onMouseDown={onSplitterMouseDown}
+            />
+            <DetailPane width={detailWidth} />
+          </>
         )}
       </div>
       <StatusBar />

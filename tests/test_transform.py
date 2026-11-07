@@ -122,3 +122,29 @@ def test_closed_ws_summary(tmp_path):
     f.websocket = WebSocketData(closed_by_client=False, close_code=1000, close_reason="bye", timestamp_end=5.0)
     rec = flow_to_record(f, ClientRegistry(tmp_path / "c.json"))
     assert rec.ws.open is False and rec.ws.closed_by == "server" and rec.ws.close_code == 1000
+
+
+def test_map_local_metadata_is_carried_onto_the_record(tmp_path):
+    from mitmproxy.test import tflow
+    from mitmboard.transform import flow_to_record
+    from mitmboard.clients import ClientRegistry
+
+    reg = ClientRegistry(tmp_path / "c.json")
+    f = tflow.tflow(resp=True)
+    f.metadata["mitmboard.maplocal.rule_id"] = "r1"
+    f.metadata["mitmboard.maplocal.file"] = "/tmp/mock.json"
+
+    rec = flow_to_record(f, reg)
+
+    assert rec.maplocal_rule_id == "r1"
+    assert rec.maplocal_file == "/tmp/mock.json"
+
+
+def test_flows_without_map_local_metadata_have_no_hit(tmp_path):
+    from mitmproxy.test import tflow
+    from mitmboard.transform import flow_to_record
+    from mitmboard.clients import ClientRegistry
+
+    reg = ClientRegistry(tmp_path / "c.json")
+    rec = flow_to_record(tflow.tflow(resp=True), reg)
+    assert rec.maplocal_rule_id is None and rec.maplocal_file is None

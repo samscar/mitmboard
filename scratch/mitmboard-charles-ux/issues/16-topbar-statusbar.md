@@ -8,7 +8,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] 顶栏只剩图标化的常用动作，每个都有悬停提示
-- [ ] Breakpoints 按钮在状态栏右下，指示点、暂停计数和弹窗功能不变
-- [ ] 不再出现静态的 Recording 文字
-- [ ] 前端 `App` 级测试与 Playwright 冒烟通过
+- [x] 顶栏只剩图标化的常用动作，每个都有悬停提示
+- [x] Breakpoints 按钮在状态栏右下，指示点、暂停计数和弹窗功能不变
+- [x] 不再出现静态的 Recording 文字
+- [x] 前端 `App` 级测试与 Playwright 冒烟通过

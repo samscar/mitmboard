@@ -1,8 +1,7 @@
 import { create } from "zustand";
-import type { FlowMeta, FlowDetail, PassthroughHost, WsMessage, Breakpoints, PausedEntry } from "./types";
+import type { FlowMeta, FlowDetail, PassthroughHost, WsMessage, Breakpoints, PausedEntry, MapLocal } from "./types";
 import { parseQuery } from "./filters/dsl";
 
-export type View = "inspector" | "devices" | "dashboard";
 export type ListMode = "sequence" | "structure";
 
 const DETAIL_WIDTH_KEY = "mitmboard.detailWidth";
@@ -40,26 +39,32 @@ interface State {
   selectedId: string | null;
   detail: FlowDetail | null;
   query: string;
-  clientIp: string | null;
-  view: View;
+  selectedNode: string | null;
+  focus: string[];
+  focusFilterOn: boolean;
   listMode: ListMode;
   passthrough: PassthroughHost[];
   detailWidth: number;
   wsMessages: Record<string, WsMessage[]>;
   breakpoints: Breakpoints;
   paused: Record<string, PausedEntry>;
-  setView: (v: View) => void;
+  maplocal: MapLocal;
   setListMode: (m: ListMode) => void;
   upsertFlow: (f: FlowMeta) => void;
   setQuery: (q: string) => void;
-  selectClient: (ip: string | null) => void;
   select: (id: string | null, detail?: FlowDetail | null) => void;
+  selectNode: (key: string | null) => void;
+  clearSelection: () => void;
+  setFocus: (hosts: string[]) => void;
+  toggleFocus: (host: string) => void;
+  setFocusFilter: (on: boolean) => void;
   setPassthrough: (hosts: PassthroughHost[]) => void;
   setDetailWidth: (n: number) => void;
   appendWsMessage: (flowId: string, m: WsMessage) => void;
   setWsMessages: (flowId: string, msgs: WsMessage[]) => void;
   mergeWsMessages: (flowId: string, msgs: WsMessage[]) => void;
   setBreakpoints: (b: Breakpoints) => void;
+  setMaplocal: (m: MapLocal) => void;
   setPaused: (list: PausedEntry[]) => void;
   addPaused: (entry: Omit<PausedEntry, "flow">, flow: FlowDetail) => void;
   removePaused: (flowId: string) => void;
@@ -71,12 +76,13 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   flows: new Map(), order: [], selectedId: null, detail: null,
-  query: "", clientIp: null, view: "inspector", listMode: loadListMode(), passthrough: [],
+  query: "", listMode: loadListMode(), passthrough: [],
+  selectedNode: null, focus: [], focusFilterOn: false,
   detailWidth: loadDetailWidth(),
   wsMessages: {},
   breakpoints: { enabled: false, rules: [] },
   paused: {},
-  setView: (view) => set({ view }),
+  maplocal: { enabled: true, rules: [] },
   setListMode: (listMode) => {
     try { localStorage.setItem(LIST_MODE_KEY, listMode); } catch { /* ignore */ }
     set({ listMode });
@@ -96,8 +102,14 @@ export const useStore = create<State>((set, get) => ({
     return { flows, order };
   }),
   setQuery: (query) => set({ query }),
-  selectClient: (clientIp) => set({ clientIp }),
-  select: (selectedId, detail = null) => set({ selectedId, detail }),
+  select: (selectedId, detail = null) => set({ selectedId, detail, selectedNode: null }),
+  selectNode: (key) => set({ selectedId: null, detail: null, selectedNode: key }),
+  clearSelection: () => set({ selectedId: null, detail: null, selectedNode: null }),
+  setFocus: (focus) => set({ focus }),
+  toggleFocus: (host) => set((s) => ({
+    focus: s.focus.includes(host) ? s.focus.filter((h) => h !== host) : [...s.focus, host],
+  })),
+  setFocusFilter: (focusFilterOn) => set({ focusFilterOn }),
   appendWsMessage: (flowId, m) => set((s) => {
     const cur = s.wsMessages[flowId] ?? [];
     const next = cur.length >= 500 ? [...cur.slice(cur.length - 499), m] : [...cur, m];
@@ -112,6 +124,7 @@ export const useStore = create<State>((set, get) => ({
     return { wsMessages: { ...s.wsMessages, [flowId]: next } };
   }),
   setBreakpoints: (breakpoints) => set({ breakpoints }),
+  setMaplocal: (maplocal) => set({ maplocal }),
   setPaused: (list) => set({ paused: Object.fromEntries(list.map((e) => [e.flow_id, e])) }),
   addPaused: (entry, flow) => set((s) => ({ paused: { ...s.paused, [entry.flow_id]: { ...entry, flow } } })),
   removePaused: (flowId) => set((s) => {
@@ -120,14 +133,19 @@ export const useStore = create<State>((set, get) => ({
     delete paused[flowId];
     return { paused };
   }),
-  clear: () => set({ flows: new Map(), order: [], selectedId: null, detail: null, query: "", clientIp: null, wsMessages: {} }),
+  clear: () => set({ flows: new Map(), order: [], selectedId: null, detail: null, query: "", wsMessages: {},
+                     selectedNode: null, focus: [], focusFilterOn: false }),
   visibleFlows: () => {
     const s = get();
     const pred = parseQuery(s.query);
+    // Focus is a second, independent filter: in Sequence view it only bites
+    // when the Focused toggle is on, and it intersects with the query rather
+    // than replacing it.
+    const focusOn = s.listMode === "sequence" && s.focusFilterOn && s.focus.length > 0;
     const out: FlowMeta[] = [];
     for (let i = s.order.length - 1; i >= 0; i--) {
       const f = s.flows.get(s.order[i])!;
-      if (s.clientIp && f.client.ip !== s.clientIp) continue;
+      if (focusOn && !s.focus.includes(f.host)) continue;
       if (pred(f)) out.push(f);
     }
     return out;

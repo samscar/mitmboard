@@ -13,7 +13,8 @@ const fieldValue = (f: FlowMeta, field: string): string | number => {
     case "status": return f.response?.status ?? 0;
     case "host": return f.host;
     case "path": return f.path;
-    case "client": return `${f.client.ip} ${f.client.label}`;
+    case "client":
+    case "device": return `${f.client.ip} ${f.client.label}`;
     case "dur": return f.duration_ms ?? 0;
     case "size": return f.response?.size ?? 0;
     case "type": return (f.response?.content_type ?? "").split("/").pop()?.split(";")[0] ?? "";

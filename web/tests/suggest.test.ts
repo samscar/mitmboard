@@ -21,3 +21,29 @@ describe("suggest", () => {
     expect(suggest("").length).toBeGreaterThan(0);
   });
 });
+
+describe("device completion", () => {
+  const devices = [
+    { ip: "192.168.1.23", label: "iPhone" },
+    { ip: "10.0.0.5", label: "Mac" },
+  ];
+
+  it("offers the device name and its IP", () => {
+    const tokens = suggest("device:", devices).map((s) => s.token);
+    expect(tokens).toEqual(expect.arrayContaining(["device:iPhone", "device:192.168.1.23"]));
+  });
+
+  it("filters by the typed partial", () => {
+    expect(suggest("device:mac", devices).map((s) => s.token)).toEqual(["device:Mac"]);
+    expect(suggest("device:10.0", devices).map((s) => s.token)).toEqual(["device:10.0.0.5"]);
+  });
+
+  it("keeps client: working with the same device list", () => {
+    expect(suggest("client:10", devices).map((s) => s.token)).toEqual(["client:10.0.0.5"]);
+  });
+
+  it("lists device among the field completions", () => {
+    expect(suggest("dev").map((s) => s.token)).toContain("device:");
+  });
+});
+

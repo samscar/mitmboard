@@ -27,10 +27,10 @@ describe("store", () => {
     useStore.getState().setQuery("host:*.soum.sa");
     expect(useStore.getState().visibleFlows().map((f) => f.id)).toEqual(["1"]);
   });
-  it("selectClient filters by ip", () => {
+  it("device: query filters by ip", () => {
     useStore.getState().upsertFlow(mk("1", { client: { ip: "1.1.1.1", label: "a" } }));
     useStore.getState().upsertFlow(mk("2", { client: { ip: "2.2.2.2", label: "b" } }));
-    useStore.getState().selectClient("2.2.2.2");
+    useStore.getState().setQuery("device:2.2.2.2");
     expect(useStore.getState().visibleFlows().map((f) => f.id)).toEqual(["2"]);
   });
   it("setPassthrough replaces the passthrough host list", () => {

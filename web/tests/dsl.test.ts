@@ -42,3 +42,22 @@ describe("parseQuery", () => {
     expect(pred({ ...f(), kind: "http", response: { ...f().response, content_type: "application/json" } } as any)).toBe(false);
   });
 });
+
+describe("device: alias", () => {
+  it("matches the same flows as client:", () => {
+    expect(parseQuery("device:192.168.1.23")(f())).toBe(true);
+    expect(parseQuery("device:192.168.1.23")(f({ client: { ip: "10.0.0.5", label: "Mac" } }))).toBe(false);
+  });
+
+  it("matches the device name as well as the IP", () => {
+    expect(parseQuery("device:iphone")(f())).toBe(true);
+  });
+
+  it("is equivalent to client: for the same value", () => {
+    const other = f({ client: { ip: "10.0.0.5", label: "Mac" } });
+    for (const value of ["192.168.1.23", "iphone", "10.0.0.5"]) {
+      expect(parseQuery(`device:${value}`)(other)).toBe(parseQuery(`client:${value}`)(other));
+    }
+  });
+});
+

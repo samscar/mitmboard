@@ -155,3 +155,31 @@ def test_config_roundtrip_keeps_other_keys():
         reg.set_map_local({"rules": [_rule()]})
         assert reg.map_local()["rules"][0]["file"] == "/tmp/mock.json"
         assert reg.all_labels()["1.2.3.4"] == "my phone"
+
+
+# --- hit details (id + file are recorded on the flow) -----------------------
+
+def test_hit_for_exposes_rule_id_and_file():
+    eng = _engine([_rule(status=201)])
+    hit = eng.hit_for(_Flow("api.example.com", "/v1/user"))
+    assert hit is not None
+    assert hit.rule_id == "r1"
+    assert hit.file == "/tmp/mock.json"
+    assert hit.status == 201
+    assert hit.body == b'{"ok":true}'
+
+
+def test_hit_for_is_none_without_a_match():
+    eng = _engine([_rule()])
+    assert eng.hit_for(_Flow("api.example.com", "/other")) is None
+
+
+def test_file_error_carries_the_rule_id():
+    def boom(_):
+        raise FileNotFoundError(2, "No such file")
+
+    eng = _engine([_rule(id="r9", file="/missing/mock.json")], reader=boom)
+    with pytest.raises(MapLocalFileError) as exc:
+        eng.hit_for(_Flow("api.example.com", "/v1/user"))
+    assert exc.value.rule_id == "r9"
+    assert exc.value.path == "/missing/mock.json"

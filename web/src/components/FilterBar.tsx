@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { suggest } from "../filters/suggest";
 import { listSaved, saveFilter } from "../savedFilters";
@@ -16,12 +16,23 @@ export function FilterBar() {
   const query = useStore((s) => s.query);
   const setQuery = useStore((s) => s.setQuery);
   const listMode = useStore((s) => s.listMode);
-  const setListMode = useStore((s) => s.setListMode);
+  const focus = useStore((s) => s.focus);
+  const focusFilterOn = useStore((s) => s.focusFilterOn);
+  const setFocusFilter = useStore((s) => s.setFocusFilter);
   const [focused, setFocused] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const tokens = query.split(/\s+/).filter(Boolean);
-  const suggestions = focused && query ? suggest(query) : [];
+  const flows = useStore((s) => s.flows);
+  // Known devices for `device:` completion, one entry per IP.
+  const devices = useMemo(() => {
+    const seen = new Map<string, { ip: string; label: string }>();
+    for (const f of flows.values()) {
+      if (!seen.has(f.client.ip)) seen.set(f.client.ip, { ip: f.client.ip, label: f.client.label });
+    }
+    return [...seen.values()];
+  }, [flows]);
+  const suggestions = focused && query ? suggest(query, devices) : [];
 
   const applySuggestion = (token: string) => {
     const parts = query.split(/\s+/);
@@ -46,7 +57,7 @@ export function FilterBar() {
           <span key={t + i} className="active-chip">{t}<button onClick={() => removeToken(i)}>✕</button></span>
         ))}
       </div>
-      <input className="search" placeholder="status:>=400  host:*.soum.sa  path:/v2/*"
+      <input className="search" aria-label="Filter" placeholder="status:>=400  host:*.soum.sa  path:/v2/*"
              value={query} onChange={(e) => setQuery(e.target.value)}
              onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} />
       {suggestions.length > 0 && (
@@ -72,12 +83,12 @@ export function FilterBar() {
       )}
       <button className="chip" aria-label="Filter syntax help" onClick={() => setShowHelp((v) => !v)}>?</button>
       {showHelp && <DslHelp />}
-      <div className="seg listmode" role="group" aria-label="List layout">
-        <button className={"seg-item" + (listMode === "sequence" ? " active" : "")}
-                onClick={() => setListMode("sequence")}>Sequence</button>
-        <button className={"seg-item" + (listMode === "structure" ? " active" : "")}
-                onClick={() => setListMode("structure")}>Structure</button>
-      </div>
+      {listMode === "sequence" && focus.length > 0 && (
+        // Charles puts a Focused checkbox in Sequence view; it hides unfocused
+        // hosts without touching Focus itself.
+        <button className={"chip" + (focusFilterOn ? " primary" : "")} aria-pressed={focusFilterOn}
+                onClick={() => setFocusFilter(!focusFilterOn)}>Focused</button>
+      )}
     </div>
   );
 }

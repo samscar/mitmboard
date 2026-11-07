@@ -8,6 +8,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] 选中节点后出现 Chart 标签，显示状态分布
-- [ ] 数据与 Summary 一致
-- [ ] 前端 `App` 级测试覆盖
+- [x] 选中节点后出现 Chart 标签，显示状态分布
+- [x] 数据与 Summary 一致
+- [x] 前端 `App` 级测试覆盖

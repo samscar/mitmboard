@@ -18,42 +18,78 @@ const detail: FlowDetail = {
   timing: { start: 1, req_done: 1, resp_start: 1, resp_done: 143, duration_ms: 142, connect_ms: null, tls_ms: null, ttfb_ms: 100, download_ms: 10 },
 };
 
-describe("DetailPane tabs", () => {
+describe("DetailPane layout", () => {
   beforeEach(() => useStore.getState().select("a", detail));
-  it("Body tab shows the JSON viewer with the response body", () => {
-    render(<DetailPane />);
-    expect(screen.getByText(/"ok"/)).toBeInTheDocument();   // JsonView rendered the body
-  });
-  it("switching to Headers shows a header name", () => {
-    render(<DetailPane />);
-    fireEvent.click(screen.getByRole("button", { name: /Headers/i }));
-    expect(screen.getByText(/content-type/)).toBeInTheDocument();
-  });
-});
 
-describe("DetailPane Body tab request body", () => {
-  it("shows both REQUEST BODY and RESPONSE BODY sections for a POST with a JSON request body", () => {
-    const postDetail: FlowDetail = {
+  it("shows one line with method, URL and status above the tabs", () => {
+    render(<DetailPane />);
+    expect(screen.getByText("https://api.soum.sa/v2/x")).toBeInTheDocument();
+    expect(screen.getByText("GET")).toBeInTheDocument();
+    expect(screen.getAllByText("200").length).toBeGreaterThan(0);
+  });
+
+  it("offers Overview, Contents, Summary and Notes", () => {
+    render(<DetailPane />);
+    for (const name of ["Overview", "Contents", "Summary", "Notes"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
+  it("calls the client row Device in Overview", () => {
+    render(<DetailPane />);
+    expect(screen.getByText("Device")).toBeInTheDocument();
+    expect(screen.queryByText("Client")).toBeNull();
+  });
+
+  it("splits Contents into a request pane above a response pane, headers separated", () => {
+    render(<DetailPane />);
+    fireEvent.click(screen.getByRole("button", { name: "Contents" }));
+
+    expect(screen.getByLabelText("Request contents")).toBeInTheDocument();
+    expect(screen.getByLabelText("Response contents")).toBeInTheDocument();
+    expect(screen.getByText("accept")).toBeInTheDocument();        // request-only header
+    expect(screen.getByText("content-type")).toBeInTheDocument();  // response-only header
+  });
+
+  it("shows query parameters and cookies in their own request sub-tabs", () => {
+    const withQuery: FlowDetail = {
+      ...detail,
+      path: "/v2/x?page=2&q=hello",
+      query: "page=2&q=hello",
+      request: { headers: [["cookie", "sid=abc; theme=dark"]], size: 0, body: null },
+    };
+    useStore.getState().select("a", withQuery);
+    render(<DetailPane />);
+    fireEvent.click(screen.getByRole("button", { name: "Contents" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Query" }));
+    expect(screen.getByText("page")).toBeInTheDocument();
+    expect(screen.getByText("hello")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cookies" }));
+    expect(screen.getByText("sid")).toBeInTheDocument();
+    expect(screen.getByText("dark")).toBeInTheDocument();
+  });
+
+  it("shows request and response JSON in their own panes", () => {
+    const post: FlowDetail = {
       ...detail,
       method: "POST",
       request: { headers: [["content-type", "application/json"]], size: 10, body: '{"name":"x"}' },
     };
-    useStore.getState().select("a", postDetail);
+    useStore.getState().select("a", post);
     render(<DetailPane />);
-    expect(screen.getByText("REQUEST BODY")).toBeInTheDocument();
-    expect(screen.getByText("RESPONSE BODY")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Contents" }));
+
+    const jsonButtons = screen.getAllByRole("button", { name: "Json" });
+    fireEvent.click(jsonButtons[0]);
     expect(screen.getByText(/"name"/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Json" })[1]);
     expect(screen.getByText(/"ok"/)).toBeInTheDocument();
   });
 
-  it("shows only RESPONSE BODY for a GET with no request body", () => {
-    useStore.getState().select("a", detail);
-    render(<DetailPane />);
-    expect(screen.queryByText("REQUEST BODY")).not.toBeInTheDocument();
-    expect(screen.getByText("RESPONSE BODY")).toBeInTheDocument();
-  });
-
-  it("shows a binary-body note for a request with no decoded body but a nonzero size", () => {
+  it("shows a binary-body note when a request body was not decoded", () => {
     const binaryDetail: FlowDetail = {
       ...detail,
       method: "POST",
@@ -61,8 +97,8 @@ describe("DetailPane Body tab request body", () => {
     };
     useStore.getState().select("a", binaryDetail);
     render(<DetailPane />);
-    expect(screen.getByText("REQUEST BODY")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: /^Raw$/i })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Contents" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Text" })[0]);
     expect(screen.getByText("binary body, 2048 bytes")).toBeInTheDocument();
   });
 });

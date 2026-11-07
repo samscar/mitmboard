@@ -8,8 +8,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] 目录与 host 右键菜单含「Map Local…」，预填值符合粒度规则；目录菜单不含 Focus
-- [ ] 从目录或 host 进入对话框时「使用已捕获的响应」置灰、状态码默认 200
-- [ ] 请求行菜单含 Copy URL、Copy cURL、Replay、Edit & Resend，行为与详情页按钮一致
+- [x] 目录与 host 右键菜单含「Map Local…」，预填值符合粒度规则；目录菜单不含 Focus
+- [x] 从目录或 host 进入对话框时「使用已捕获的响应」置灰、状态码默认 200
+- [x] 请求行菜单含 Copy URL、Copy cURL、Replay、Edit & Resend，行为与详情页按钮一致
 - [ ] 菜单可用 Esc 或点击空白处关闭
-- [ ] 前端 `App` 级测试覆盖
+- [x] 前端 `App` 级测试覆盖

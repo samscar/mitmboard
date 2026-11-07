@@ -68,6 +68,11 @@ class Flow(BaseModel):
     modified: bool = False
     kind: FlowKind = "http"
     ws: Optional[WsSummary] = None
+    # Map Local hit, recorded once when the rule fired. Both stay populated
+    # even after the rule is deleted or disabled: a hit is a historical fact
+    # about this flow, not a live lookup into the current rule list.
+    maplocal_rule_id: Optional[str] = None
+    maplocal_file: Optional[str] = None
 
     def meta(self) -> dict:
         d = self.model_dump()

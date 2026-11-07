@@ -8,7 +8,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] 设备栏、Devices 页、Dashboard 页不再出现
-- [ ] 切换在树面板顶部，过滤框在树面板底部，行为不变
-- [ ] 按设备筛选与直通管理仍可通过 `device:` 和直通弹窗完成
-- [ ] 旧测试已删除或改写，Playwright 冒烟通过
+- [x] 设备栏、Devices 页、Dashboard 页不再出现
+- [x] 切换在树面板顶部，过滤框在树面板底部，行为不变
+- [x] 按设备筛选与直通管理仍可通过 `device:` 和直通弹窗完成
+- [x] 旧测试已删除或改写，Playwright 冒烟通过

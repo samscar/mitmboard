@@ -54,3 +54,13 @@ def config_path() -> Path:
         except OSError:
             pass
     return new
+
+
+def managed_dir() -> Path:
+    """Directory holding the Map Local files Mitmboard owns and cleans up.
+
+    Uploads and "save captured response" write here; a path the user typed by
+    hand may live anywhere and is never swept. See
+    docs/adr/0003-managed-maplocal-files.md.
+    """
+    return Path.home() / ".mitmboard" / "maplocal"

@@ -1116,3 +1116,148 @@ body.in-tauri .topbar { padding-left: 82px; }
 .stree-method { flex: 0 0 46px; font-size: 10.5px; font-weight: 700; font-family: "JetBrains Mono", ui-monospace, monospace; }
 .stree-status { flex: 0 0 34px; font-size: 11px; text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; }
 .stree-size { flex: 0 0 62px; color: var(--muted); font-size: 11px; text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+/* --- Context menu -------------------------------------------------------- */
+.ctxmenu {
+  position: fixed; z-index: 60; min-width: 190px; padding: 5px;
+  background: #171b24; border: 1px solid #2a3040; border-radius: 9px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.ctxitem {
+  display: block; width: 100%; text-align: left; padding: 7px 10px;
+  background: transparent; border: none; border-radius: 6px;
+  color: var(--fg); font-size: 12.5px; cursor: pointer;
+}
+.ctxitem:hover:not(:disabled) { background: #232a38; }
+.ctxitem:disabled { color: var(--sec); opacity: .5; cursor: default; }
+.ctxsep { height: 1px; margin: 4px 6px; background: #2a3040; }
+
+/* --- Map Local ----------------------------------------------------------- */
+.mapped-badge {
+  background: rgba(139, 124, 246, .18); color: var(--brand);
+  border-radius: 4px; padding: 0 5px; margin-right: 5px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .04em;
+}
+.ml-dialog { width: 460px; }
+.ml-field { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.ml-field label { font-size: 11px; font-weight: 600; color: var(--sec); }
+.ml-field input, .ml-field select {
+  padding: 7px 9px; border-radius: 7px; background: #0f131b;
+  border: 1px solid #2a3040; color: var(--fg); font-size: 12.5px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+}
+.ml-row { display: flex; gap: 12px; }
+.ml-row .ml-field { flex: 1; }
+.ml-row .ml-status { max-width: 110px; }
+.ml-file-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ml-choose { position: relative; overflow: hidden; cursor: pointer; }
+.ml-choose input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.ml-choose.disabled { opacity: .55; pointer-events: none; }
+.ml-hint { margin: 12px 0 0; font-size: 11.5px; color: var(--sec); line-height: 1.5; }
+.ml-hint code { background: #0f131b; border-radius: 4px; padding: 1px 4px; }
+
+/* --- Map Local rule list ------------------------------------------------- */
+.ml-modal { width: 760px; max-width: 760px; }
+.ml-empty { color: var(--sec); font-size: 12px; padding: 10px 2px; }
+.ml-rule { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1.1fr) 40px 22px 22px auto 22px; }
+.modal .ml-rule .bp-del { color: var(--sec); font-size: 12px; line-height: 1; }
+.modal .ml-rule .ml-move { font-size: 9.5px; }
+.modal .ml-rule .ml-move:hover:not(:disabled) { color: var(--brand); }
+.modal .ml-rule .chip { margin: 0; padding: 4px 10px; font-size: 11.5px; }
+.ml-rule-source { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-rule-file {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11.5px; color: var(--sec);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ml-rule-file em { opacity: .7; }
+.ml-rule-status { font-size: 11.5px; color: var(--sec); text-align: right; }
+.ml-rule .bp-del:disabled { opacity: .3; cursor: default; }
+
+/* --- Tree selection and Focus -------------------------------------------- */
+.stree-row.selected { background: #232a38; }
+.stree-caret { cursor: pointer; }
+.stree-focus { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); display: inline-block; }
+.stree-other .stree-name { color: var(--sec); font-style: italic; }
+
+/* --- Detail pane: title, split contents, notes --------------------------- */
+.detail-title { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+.detail-title-url {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.detail-title-arrow { color: var(--muted); font-size: 12px; }
+.detail-node-key { font-family: var(--mono, ui-monospace, SFMono-Regular, monospace); font-size: 13px; font-weight: 600; }
+
+.contents-split { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.contents-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.contents-divider { height: 1px; background: var(--border); }
+.pane-head {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pane-title { font-size: 10.5px; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.pane-head .seg { margin-left: auto; }
+.pane-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px; }
+.pane-body-scroll { max-height: 100%; }
+.pane-view-badge { font-size: 10.5px; color: var(--sec); margin-bottom: 6px; }
+.hlist { display: flex; flex-direction: column; gap: 3px; }
+
+.notes { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.note { display: flex; gap: 10px; font-size: 12.5px; }
+.note-key { color: var(--sec); min-width: 84px; }
+.note-val { color: var(--text); word-break: break-all; }
+
+/* Contents sub-tabs must fit a 420px detail pane; six request tabs do not at
+   the global seg size, so they scroll instead of spilling past the edge. */
+.pane-head .seg { flex: 1; min-width: 0; justify-content: flex-end; overflow-x: auto; }
+.pane-head .seg-item { padding: 3px 7px; font-size: 10.5px; }
+.pane-head .seg::-webkit-scrollbar { height: 0; }
+
+.node-chart { padding: 12px; }
+
+/* --- Passthrough modal --------------------------------------------------- */
+.pt-modal { width: 520px; max-width: 520px; }
+.pt-intro { color: var(--sec); font-size: 12px; line-height: 1.6; margin: 0 0 12px; }
+.pt-list { display: flex; flex-direction: column; gap: 6px; }
+.pt-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--chip); border-radius: 8px; }
+.pt-ico { color: var(--post); display: inline-flex; }
+.pt-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pt-name { font-size: 12.5px; }
+.pt-sub { font-size: 11px; color: var(--sec); }
+.pt-err { font-size: 11px; color: var(--err5xx); }
+.pt-tag { pointer-events: none; opacity: .8; }
+.tb-passthrough { border: none; background: transparent; cursor: pointer; }
+
+/* --- Left panel: switch on top, list in the middle, filter at the bottom - */
+.listpanel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.lp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--panel);
+}
+.lp-count { margin-left: auto; font-size: 11px; color: var(--sec); }
+.lp-body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.lp-body > * { flex: 1; min-width: 0; }
+.listpanel .filterbar { border-top: 1px solid var(--border); margin: 0; }
+
+/* --- Top-bar icon actions and status-bar breakpoints --------------------- */
+.tb-icon {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  position: relative; width: 28px; height: 26px; padding: 0;
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
+  color: var(--sec); cursor: pointer;
+}
+.tb-icon:hover:not(:disabled) { background: var(--chip); color: var(--text); }
+.tb-icon:disabled { opacity: .4; cursor: default; }
+.tb-icon .tb-bp-dot { position: absolute; top: 4px; right: 4px; }
+.sb-bp {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 12px;
+  padding: 2px 8px; background: transparent; border: 1px solid transparent;
+  border-radius: 6px; color: var(--sec); cursor: pointer;
+}
+.sb-bp:hover { background: var(--chip); color: var(--text); }
+
+/* The switch sits at the panel's left edge; the count owns the free space. */
+.lp-head .listmode { margin-left: 0; }
+.tb-icon { color: var(--text); opacity: .8; }
+.tb-icon:hover:not(:disabled) { opacity: 1; }

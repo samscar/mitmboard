@@ -57,7 +57,7 @@ function markupTokens(line: string) {
   return out.length ? out : [{ tag: false, v: line }];
 }
 
-function RawLines({ text, markup }: { text: string; markup?: boolean }) {
+export function RawLines({ text, markup }: { text: string; markup?: boolean }) {
   const lines = text.split("\n");
   return (
     <div className="jv-raw-wrap">

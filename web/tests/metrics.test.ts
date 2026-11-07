@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deviceStats, dashboard } from "../src/metrics";
+import { dashboard } from "../src/metrics";
 import type { FlowMeta, DeviceKind } from "../src/types";
 
 const mk = (o: Omit<Partial<FlowMeta>, "kind"> & { ip?: string; status?: number | null; ms?: number | null; size?: number; deviceKind?: DeviceKind }): FlowMeta => ({
@@ -9,23 +9,6 @@ const mk = (o: Omit<Partial<FlowMeta>, "kind"> & { ip?: string; status?: number 
   request: { headers: [], size: 100 },
   response: o.status === null ? null : { status: o.status ?? 200, reason: "", headers: [], size: o.size ?? 200, content_type: "application/json" },
   duration_ms: o.ms === undefined ? 100 : o.ms, state: "complete", error: null,
-});
-
-describe("deviceStats", () => {
-  it("aggregates count, error rate, avg latency, bytes per device", () => {
-    const stats = deviceStats([
-      mk({ ip: "1.1.1.1", status: 200, ms: 100, size: 200, deviceKind: "phone" }),
-      mk({ ip: "1.1.1.1", status: 500, ms: 300, size: 400 }),
-      mk({ ip: "2.2.2.2", status: 200, ms: 50, size: 100 }),
-    ]);
-    const a = stats.find((s) => s.ip === "1.1.1.1")!;
-    expect(a.count).toBe(2);
-    expect(a.errorRate).toBe(0.5);
-    expect(a.avgMs).toBe(200);
-    expect(a.kind).toBe("phone");
-    expect(a.bytes).toBe(200 + 100 + 400 + 100);  // req+resp sizes
-    expect(stats[0].ip).toBe("1.1.1.1");           // most active first
-  });
 });
 
 describe("dashboard", () => {

@@ -8,9 +8,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] 标题行与标签符合上述规则；Summary 标签的内容就是现有的 Timing 相位表
-- [ ] Contents 请求在上、响应在下，各子标签内容正确，headers 不再混在一起
-- [ ] 命中信息显示在 Notes；规则已删除时仍显示快照路径并标注 rule deleted
-- [ ] Overview 中显示「Device」
-- [ ] 暂停请求的编辑与放行流程不受影响
-- [ ] 前端 `App` 级测试覆盖
+- [x] 标题行与标签符合上述规则；Summary 标签的内容就是现有的 Timing 相位表
+- [x] Contents 请求在上、响应在下，各子标签内容正确，headers 不再混在一起
+- [x] 命中信息显示在 Notes；规则已删除时仍显示快照路径并标注 rule deleted
+- [x] Overview 中显示「Device」
+- [x] 暂停请求的编辑与放行流程不受影响
+- [x] 前端 `App` 级测试覆盖

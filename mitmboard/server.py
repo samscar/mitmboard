@@ -1,10 +1,12 @@
 from __future__ import annotations
+from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from .netinfo import lan_ips
+from .managed import ManagedFileTooLarge, extension_for, store_bytes, sweep
 from .sessions import dump_session, load_session
 from .har import flows_to_har
 from .cainfo import ca_info
@@ -63,6 +65,8 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
              breakpoints: "BreakpointEngine | None" = None,
              resume_paused: Callable[[str, dict], dict | None] | None = None,
              drop_paused: Callable[[str], dict | None] | None = None,
+             maplocal_dir: Path | None = None,
+             save_response_file: Callable[[str], dict | None] | None = None,
              web_port: int = 8081, proxy_port: int = 8080) -> FastAPI:
     app = FastAPI(title="Mitmboard")
 
@@ -200,8 +204,45 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         data = registry.map_local()
+        # Best-effort cleanup: files Mitmboard created that no rule references
+        # any more. Fresh uploads are protected by the TTL inside sweep().
+        if maplocal_dir is not None:
+            try:
+                sweep(maplocal_dir, {str(r.get("file", "")) for r in data.get("rules", [])})
+            except OSError:
+                pass
         await broadcaster.publish({"type": "maplocal.update", **data})
         return data
+
+    @app.post("/api/maplocal/files")
+    async def upload_maplocal_file(request: Request, filename: str = "") -> dict:
+        """Accept a browser upload as a raw body and store it in the managed dir.
+
+        The filename arrives as a query parameter rather than a multipart part
+        so the endpoint needs no multipart parser: only the extension matters,
+        and the stored name is the content hash.
+        """
+        if maplocal_dir is None:
+            raise HTTPException(status_code=503, detail="managed files unavailable")
+        data = await request.body()
+        try:
+            path = store_bytes(maplocal_dir, data, extension_for(filename))
+        except ManagedFileTooLarge as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        return {"path": str(path), "size": len(data)}
+
+    @app.post("/api/flows/{flow_id}/maplocal-file")
+    async def save_captured_response(flow_id: str) -> dict:
+        """Write a captured response body into the managed dir and return its path."""
+        if save_response_file is None:
+            raise HTTPException(status_code=503, detail="save as file unavailable")
+        try:
+            saved = save_response_file(flow_id)
+        except ManagedFileTooLarge as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        if saved is None:
+            raise HTTPException(status_code=404, detail="not found")
+        return saved
 
     @app.get("/api/paused")
     def list_paused() -> list[dict]:

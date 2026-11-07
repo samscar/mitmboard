@@ -1,30 +1,4 @@
-import type { FlowMeta, DeviceKind } from "./types";
-
-export interface DeviceStat {
-  ip: string; label: string; kind: DeviceKind;
-  count: number; errorRate: number; avgMs: number; bytes: number; lastSeen: number;
-}
-
-/** Per-device aggregates for the Devices view. */
-export function deviceStats(flows: FlowMeta[], overrides: Record<string, string> = {}): DeviceStat[] {
-  const m = new Map<string, { label: string; kind: DeviceKind; count: number; errs: number; ms: number; msN: number; bytes: number; last: number }>();
-  for (const f of flows) {
-    let d = m.get(f.client.ip);
-    if (!d) { d = { label: f.client.label, kind: f.client.kind ?? "unknown", count: 0, errs: 0, ms: 0, msN: 0, bytes: 0, last: 0 }; m.set(f.client.ip, d); }
-    d.count++;
-    if (d.kind === "unknown" && f.client.kind) d.kind = f.client.kind;
-    if ((f.response?.status ?? 0) >= 400) d.errs++;
-    if (f.duration_ms != null) { d.ms += f.duration_ms; d.msN++; }
-    d.bytes += (f.response?.size ?? 0) + (f.request?.size ?? 0);
-    if (f.timestamp > d.last) d.last = f.timestamp;
-  }
-  return [...m.entries()].map(([ip, d]) => ({
-    ip, label: overrides[ip] ?? d.label, kind: d.kind, count: d.count,
-    errorRate: d.count ? d.errs / d.count : 0,
-    avgMs: d.msN ? Math.round(d.ms / d.msN) : 0,
-    bytes: d.bytes, lastSeen: d.last,
-  })).sort((a, b) => b.count - a.count);
-}
+import type { FlowMeta } from "./types";
 
 export interface Dashboard {
   total: number; errorRate: number; avgMs: number; p95Ms: number;

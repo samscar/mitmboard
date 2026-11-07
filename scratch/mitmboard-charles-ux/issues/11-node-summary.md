@@ -8,7 +8,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] 选中 host 或目录显示 Overview 与 Summary，数字与该节点下的流量一致
+- [x] 选中 host 或目录显示 Overview 与 Summary，数字与该节点下的流量一致
 - [ ] 流量更新时汇总随之更新
-- [ ] 选回具体请求时恢复请求详情
-- [ ] 前端 `App` 级测试覆盖
+- [x] 选回具体请求时恢复请求详情
+- [x] 前端 `App` 级测试覆盖

@@ -75,6 +75,9 @@ def flow_to_record(mflow: HTTPFlow, registry: ClientRegistry) -> Flow:
                     connect_ms=connect_ms, tls_ms=tls_ms, ttfb_ms=ttfb, download_ms=download)
     ws = getattr(mflow, "websocket", None)
     flow_kind = "ws" if ws is not None else "http"
+    metadata = getattr(mflow, "metadata", None) or {}
+    maplocal_rule_id = metadata.get("mitmboard.maplocal.rule_id")
+    maplocal_file = metadata.get("mitmboard.maplocal.file")
     ws_summary = None
     if ws is not None:
         from mitmboard.models import WsSummary
@@ -90,4 +93,5 @@ def flow_to_record(mflow: HTTPFlow, registry: ClientRegistry) -> Flow:
         request=req, response=resp, timing=timing, state=state,
         error=str(mflow.error) if getattr(mflow, "error", None) else None,
         kind=flow_kind, ws=ws_summary,
+        maplocal_rule_id=maplocal_rule_id, maplocal_file=maplocal_file,
     )

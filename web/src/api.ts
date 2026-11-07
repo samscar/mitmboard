@@ -1,4 +1,4 @@
-import type { FlowMeta, FlowDetail, ClientInfo, PassthroughHost, WsMessage, Breakpoints, PausedEntry } from "./types";
+import type { FlowMeta, FlowDetail, ClientInfo, PassthroughHost, WsMessage, Breakpoints, PausedEntry, MapLocal } from "./types";
 const j = async (r: Response) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); };
 export const fetchFlows = (): Promise<FlowMeta[]> => fetch("/api/flows").then(j);
 export const fetchDetail = (id: string): Promise<FlowDetail> => fetch(`/api/flows/${id}`).then(j);
@@ -33,3 +33,13 @@ export const download = async (path: string, filename: string) => {
   const blob = await res.blob();
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
 };
+
+export const fetchMaplocal = (): Promise<MapLocal> => fetch("/api/maplocal").then(j);
+export const saveMaplocal = (m: MapLocal): Promise<MapLocal> =>
+  fetch("/api/maplocal", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(m) }).then(j);
+/** Upload a local file into the managed directory; the name only supplies the extension. */
+export const uploadMaplocalFile = (file: File): Promise<{ path: string; size: number }> =>
+  fetch(`/api/maplocal/files?filename=${encodeURIComponent(file.name)}`, { method: "POST", body: file }).then(j);
+/** Write a captured response body into the managed directory and return its path. */
+export const saveCapturedResponse = (id: string): Promise<{ path: string; size: number }> =>
+  fetch(`/api/flows/${id}/maplocal-file`, { method: "POST" }).then(j);

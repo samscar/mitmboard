@@ -45,3 +45,14 @@ def test_flow_kind_defaults_and_ws_summary_in_meta():
     assert f.kind == "http" and f.ws is None and f.meta()["kind"] == "http"
     g = make_flow(kind="ws", ws={"messages": 3, "open": True, "closed_by": None, "close_code": None, "close_reason": None})
     assert g.meta()["ws"]["messages"] == 3 and g.meta()["ws"]["open"] is True
+
+
+def test_meta_exposes_map_local_hit_fields():
+    meta = make_flow(maplocal_rule_id="r1", maplocal_file="/tmp/mock.json").meta()
+    assert meta["maplocal_rule_id"] == "r1"
+    assert meta["maplocal_file"] == "/tmp/mock.json"
+
+def test_meta_hit_fields_default_to_none():
+    meta = make_flow().meta()
+    assert meta["maplocal_rule_id"] is None
+    assert meta["maplocal_file"] is None

@@ -8,9 +8,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Focus 后被关注的 host 置顶，其余收进可展开的 Other Hosts
-- [ ] 同时关注两个 host 时两者都置顶，取消其中一个后另一个仍在顶部
-- [ ] Sequence 视图的 Focused 开关只显示被关注的流量
-- [ ] 与过滤框查询取交集
-- [ ] Esc 一次清全部 Focus、再按一次清选中；也可通过菜单取消 Focus
-- [ ] 前端 `App` 级测试覆盖
+- [x] Focus 后被关注的 host 置顶，其余收进可展开的 Other Hosts
+- [x] 同时关注两个 host 时两者都置顶，取消其中一个后另一个仍在顶部
+- [x] Sequence 视图的 Focused 开关只显示被关注的流量
+- [x] 与过滤框查询取交集
+- [x] Esc 一次清全部 Focus、再按一次清选中；也可通过菜单取消 Focus
+- [x] 前端 `App` 级测试覆盖

@@ -428,3 +428,124 @@ async def test_clear_resumes_paused_flows(monkeypatch):
     assert addon.breakpoints.paused() == []
     resumed = [e for e in published if e["type"] == "breakpoint.resumed" and e.get("flow_id") == f.id]
     assert len(resumed) == 1 and resumed[0]["modified"] is False
+
+
+async def test_map_local_hit_marks_the_flow(tmp_path):
+    addon = Mitmboard()
+    async def noop(evt): pass
+    addon.broadcaster.publish = noop
+    mock = tmp_path / "mock.json"
+    mock.write_text('{"ok":true}', encoding="utf-8")
+    addon.registry.map_local = lambda: {"enabled": True, "rules": [
+        {"id": "r1", "host": "api.example.com", "path": "/v1/*", "file": str(mock)}]}
+    with taddons.context(addon):
+        f = tflow.tflow(resp=False)
+        f.request.host = "api.example.com"
+        f.request.path = "/v1/user"
+        addon.request(f)
+        await addon._flush_for_test()
+    rec = addon.store.get(f.id)
+    assert f.response.status_code == 200
+    assert rec.maplocal_rule_id == "r1"
+    assert rec.maplocal_file == str(mock)
+
+
+async def test_missing_mock_file_is_a_visible_500_and_still_marked(tmp_path):
+    addon = Mitmboard()
+    async def noop(evt): pass
+    addon.broadcaster.publish = noop
+    missing = str(tmp_path / "gone.json")
+    addon.registry.map_local = lambda: {"enabled": True, "rules": [
+        {"id": "r7", "host": "api.example.com", "path": "/v1/*", "file": missing}]}
+    with taddons.context(addon):
+        f = tflow.tflow(resp=False)
+        f.request.host = "api.example.com"
+        f.request.path = "/v1/user"
+        addon.request(f)
+        await addon._flush_for_test()
+    rec = addon.store.get(f.id)
+    assert f.response.status_code == 500
+    assert rec.maplocal_rule_id == "r7"
+    assert rec.maplocal_file == missing
+
+
+async def test_hit_marker_survives_the_completion_record(tmp_path):
+    # The record is rebuilt from the flow on every event; a marker that lived
+    # only on the first Flow instance would vanish when the response lands.
+    addon = Mitmboard()
+    async def noop(evt): pass
+    addon.broadcaster.publish = noop
+    mock = tmp_path / "mock.json"
+    mock.write_text('{"ok":true}', encoding="utf-8")
+    addon.registry.map_local = lambda: {"enabled": True, "rules": [
+        {"id": "r1", "host": "api.example.com", "path": "/v1/*", "file": str(mock)}]}
+    with taddons.context(addon):
+        f = tflow.tflow(resp=False)
+        f.request.host = "api.example.com"
+        f.request.path = "/v1/user"
+        addon.request(f)
+        addon.response(f)
+        await addon._flush_for_test()
+    rec = addon.store.get(f.id)
+    assert rec.state == "complete"
+    assert rec.maplocal_rule_id == "r1"
+
+
+async def test_save_response_file_derives_the_extension_from_content_type(tmp_path):
+    addon = Mitmboard()
+    with taddons.context(addon):
+        f = tflow.tflow(resp=True)
+        f.response.headers["content-type"] = "application/json; charset=utf-8"
+        f.response.content = b'{"ok":true}'
+        addon._mflows[f.id] = f
+        saved = addon.save_response_file(f.id, root=tmp_path)
+    assert saved is not None
+    assert saved["path"].endswith(".json")
+    assert saved["size"] == 11
+    assert tmp_path.joinpath(saved["path"].rsplit("/", 1)[-1]).read_bytes() == b'{"ok":true}'
+
+
+async def test_save_response_file_supports_binary_bodies(tmp_path):
+    addon = Mitmboard()
+    with taddons.context(addon):
+        f = tflow.tflow(resp=True)
+        f.response.headers["content-type"] = "image/png"
+        f.response.content = b"\x89PNG\r\n\x1a\n"
+        addon._mflows[f.id] = f
+        saved = addon.save_response_file(f.id, root=tmp_path)
+    assert saved is not None and saved["path"].endswith(".png")
+
+
+async def test_save_response_file_returns_none_for_unknown_flow():
+    addon = Mitmboard()
+    assert addon.save_response_file("nope") is None
+
+
+async def test_save_response_file_derives_the_extension_from_content_type(tmp_path):
+    addon = Mitmboard()
+    with taddons.context(addon):
+        f = tflow.tflow(resp=True)
+        f.response.headers["content-type"] = "application/json; charset=utf-8"
+        f.response.content = b'{"ok":true}'
+        addon._mflows[f.id] = f
+        saved = addon.save_response_file(f.id, root=tmp_path)
+    assert saved is not None
+    assert saved["path"].endswith(".json")
+    assert saved["size"] == 11
+    assert tmp_path.joinpath(saved["path"].rsplit("/", 1)[-1]).read_bytes() == b'{"ok":true}'
+
+
+async def test_save_response_file_supports_binary_bodies(tmp_path):
+    addon = Mitmboard()
+    with taddons.context(addon):
+        f = tflow.tflow(resp=True)
+        f.response.headers["content-type"] = "image/png"
+        f.response.content = b"\x89PNG\r\n\x1a\n"
+        addon._mflows[f.id] = f
+        saved = addon.save_response_file(f.id, root=tmp_path)
+    assert saved is not None and saved["path"].endswith(".png")
+
+
+async def test_save_response_file_returns_none_for_unknown_flow():
+    addon = Mitmboard()
+    assert addon.save_response_file("nope") is None

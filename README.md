@@ -28,6 +28,10 @@ cd web && npm install && npm run build && cd ..
 
 `mitmboard --proxy-port 9090 --web-port 9091` changes the ports; any other flag is passed to `mitmdump`.
 
+Requires Python 3.11+ and **mitmproxy 12.3.1**, pinned exactly: the addon reads several
+mitmproxy internals (`flow.metadata`, `tls_clienthello`'s `data.context`, `is_replay`), so a
+patch-level API change can silently break the UI.
+
 ---
 
 ## Why Mitmboard instead of Proxyman / Charles?

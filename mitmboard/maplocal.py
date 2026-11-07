@@ -12,10 +12,25 @@ DEFAULT_STATUS = 200
 class MapLocalFileError(Exception):
     """The matched rule points at a file that cannot be read."""
 
-    def __init__(self, path: str, cause: Exception) -> None:
+    def __init__(self, path: str, cause: Exception, rule_id: str | None = None) -> None:
         self.path = path
         self.cause = cause
+        # Kept so the flow can still record *which* rule fired when the file
+        # itself is unreadable: that 500 is a hit too, and the UI must be able
+        # to say so rather than pretending the request went to the network.
+        self.rule_id = rule_id
         super().__init__(f"cannot read {path}: {cause}")
+
+
+@dataclass(frozen=True)
+class MapLocalHit:
+    """Everything the addon needs to answer a request and mark the flow."""
+
+    rule_id: str
+    file: str
+    body: bytes
+    content_type: str
+    status: int
 
 
 @dataclass
@@ -103,8 +118,8 @@ class MapLocalEngine:
                 continue
         return bool(data.get("enabled", True)), rules
 
-    def payload_for(self, flow) -> tuple[bytes, str, int] | None:
-        """Return (body, content_type, status) when a rule serves `flow`, else None.
+    def hit_for(self, flow) -> MapLocalHit | None:
+        """Return the hit that serves `flow`, or None.
 
         Replays are skipped: they already carry the response being replayed,
         and overwriting it would make the replayed flow lie about its result.
@@ -124,5 +139,13 @@ class MapLocalEngine:
         try:
             body = self._read_file(rule.file)
         except OSError as e:
-            raise MapLocalFileError(rule.file, e) from e
-        return body, content_type_for(rule.file), rule.status
+            raise MapLocalFileError(rule.file, e, rule.id) from e
+        return MapLocalHit(rule_id=rule.id, file=rule.file, body=body,
+                           content_type=content_type_for(rule.file), status=rule.status)
+
+    def payload_for(self, flow) -> tuple[bytes, str, int] | None:
+        """Return (body, content_type, status) when a rule serves `flow`, else None."""
+        hit = self.hit_for(flow)
+        if hit is None:
+            return None
+        return hit.body, hit.content_type, hit.status

@@ -1,5 +1,5 @@
 /** Small monochrome lock-open glyph — a host that refused our cert and is
- * being forwarded encrypted instead of intercepted. Shared by ClientsSidebar
+ * being forwarded encrypted instead of intercepted. Shared by the top bar and the passthrough modal
  * (the passthrough list) and TopBar (the status pill). */
 export function LockOpenIcon({ size = 16 }: { size?: number }) {
   return (

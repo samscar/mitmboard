@@ -10,6 +10,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] `pyproject.toml` 中 mitmproxy 依赖为 `==<已验证版本>`，不再含范围上界或下界
-- [ ] 该版本号同时写进 README 的依赖/运行环境说明
+- [x] `pyproject.toml` 中 mitmproxy 依赖为 `==<已验证版本>`，不再含范围上界或下界
+- [x] 该版本号同时写进 README 的依赖/运行环境说明
 - [ ] `pytest` 全绿，且能实际起一次界面确认没有用到该版本之外的能力

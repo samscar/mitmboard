@@ -3,7 +3,9 @@ import asyncio
 import logging
 import time
 from collections import OrderedDict
-from mitmboard.paths import config_path
+from pathlib import Path
+from mitmboard.paths import config_path, managed_dir
+from mitmboard.managed import extension_for_content_type, store_bytes
 from mitmproxy import ctx, http
 from mitmproxy.addonmanager import Loader
 from mitmproxy.http import HTTPFlow, Headers
@@ -88,6 +90,8 @@ class Mitmboard:
                        breakpoints=self.breakpoints,
                        resume_paused=self.resume_paused,
                        drop_paused=self.drop_paused,
+                       maplocal_dir=managed_dir(),
+                       save_response_file=self.save_response_file,
                        web_port=port, proxy_port=proxy_port)
         config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
         asyncio.ensure_future(uvicorn.Server(config).serve())
@@ -148,9 +152,10 @@ class Mitmboard:
         if getattr(flow, "response", None) is not None:
             return False
         try:
-            hit = self.maplocal.payload_for(flow)
+            hit = self.maplocal.hit_for(flow)
         except MapLocalFileError as e:
             _log.error("mitmboard map local: %s", e)
+            self._mark_hit(flow, e.rule_id, e.path)
             flow.response = http.Response.make(
                 500,
                 f"Mitmboard Map Local: {e}\n".encode(),
@@ -159,9 +164,36 @@ class Mitmboard:
             return True
         if hit is None:
             return False
-        body, content_type, status = hit
-        flow.response = http.Response.make(status, body, {"Content-Type": content_type})
+        self._mark_hit(flow, hit.rule_id, hit.file)
+        flow.response = http.Response.make(hit.status, hit.body, {"Content-Type": hit.content_type})
         return True
+
+    @staticmethod
+    def _mark_hit(flow: HTTPFlow, rule_id: str | None, file: str | None) -> None:
+        """Record the hit on the flow itself, so later records keep it.
+
+        The record is rebuilt from the mitmproxy flow on every event, so the
+        marker has to survive there rather than on our Flow copy.
+        """
+        if rule_id:
+            flow.metadata["mitmboard.maplocal.rule_id"] = rule_id
+        if file:
+            flow.metadata["mitmboard.maplocal.file"] = file
+
+    def save_response_file(self, flow_id: str, root: Path | None = None) -> dict | None:
+        """Write a captured response into the managed directory.
+
+        The extension is derived from the response Content-Type, so the mock is
+        later served back as application/json rather than octet-stream.
+        """
+        mflow = self._mflows.get(flow_id)
+        if mflow is None or getattr(mflow, "response", None) is None:
+            return None
+        content = mflow.response.get_content(strict=False) or b""
+        content_type = mflow.response.headers.get("content-type", "")
+        path = store_bytes(root or managed_dir(), content,
+                           extension_for_content_type(content_type))
+        return {"path": str(path), "size": len(content)}
 
     def tls_clienthello(self, data) -> None:
         # A hook exception here kills the connection outright (mitmproxy
