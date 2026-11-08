@@ -29,3 +29,9 @@ desktop/sidecar/build/
 desktop/sidecar/dist/
 /build/
 docs/media/*.webm
+
+# Staged by scripts/stage_web_assets.sh for wheel builds
+mitmboard/web_dist/
+
+# Local scratch space used for verification runs
+.scratch/

@@ -32,6 +32,31 @@ Requires Python 3.11+ and **mitmproxy 12.3.1**, pinned exactly: the addon reads 
 mitmproxy internals (`flow.metadata`, `tls_clienthello`'s `data.context`, `is_replay`), so a
 patch-level API change can silently break the UI.
 
+### Install it as a command
+
+`pip install -e .` writes an executable to `.venv/bin/mitmboard`. That path is only on your `PATH` **inside that environment**, so `mitmboard` is "command not found" in a fresh shell. Two ways to fix it:
+
+```bash
+# per shell
+source .venv/bin/activate
+mitmboard
+
+# once, system-wide (pipx gives it its own venv — nothing goes into system Python)
+cd web && npm run build && cd ..
+./scripts/stage_web_assets.sh    # wheels only ship mitmboard/web_dist
+pipx install .
+```
+
+For development, install it editable so edits apply on the next run:
+
+```bash
+pipx install --editable .
+```
+
+Code changes take effect immediately; UI changes need `npm run build` first. Re-run `pipx install --force --editable .` after changing dependencies, and `pipx reinstall mitmboard` for a non-editable upgrade.
+
+**Troubleshooting.** `mitmboard: command not found` means the venv is not active (or pipx's `~/.local/bin` is not on `PATH`) — `command -v mitmboard` shows which. A terminal that shows no prompt after starting is normal: the proxy runs in the foreground, so open another shell or press `Ctrl-C`.
+
 ---
 
 ## Why Mitmboard instead of Proxyman / Charles?
