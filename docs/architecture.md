@@ -14,7 +14,7 @@ Mitmboard runs as a standard mitmproxy addon loaded by `mitmdump`. mitmproxy ter
 - Original mitmproxy flow objects are retained (bounded) so **Replay** and **Edit‑and‑Resend** can re‑issue them; the edit logic lives in `apply_request_edits` / `apply_response_edits`.
 - When mitmproxy finishes starting (`running` hook), the addon boots the FastAPI app on a uvicorn server bound to `127.0.0.1`, and starts a 1 s breakpoint sweep task.
 
-`cli.py` translates Mitmboard's own flags (`--proxy-port` / `--web-port`, env `MITMBOARD_*`) into `mitmdump` argv and always loads the addon. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
+`cli.py` translates Mitmboard's mitmweb-compatible web flags (`--web-port`, `--web-host`, `--web-open-browser`) into `mitmdump` argv and always loads the addon. Proxy and traffic flags are mitmproxy's own and pass through untouched. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
 
 ### TLS passthrough for pinned hosts (`passthrough.py`)
 

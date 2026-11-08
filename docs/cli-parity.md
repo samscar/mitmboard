@@ -23,23 +23,25 @@
 
 | # | mitmweb 能力 | 现状 | Charles 对应 | 处置 |
 | --- | --- | --- | --- | --- |
-| T1 | `--web-host` | 硬编码绑定 `127.0.0.1`；传该参数会被透传给 mitmdump 并报 `unrecognized arguments` | Proxy → Web Interface Settings：只有「启用」与「访问控制」，没有绑定地址项；Charles 的网页界面走 `http://control.charles`，由代理转发 | 待实现（本轮已同意支持，安全策略见未决项） |
-| T2 | `--web-open-browser` / `--no-web-open-browser` | 只能靠环境变量 `MITMBOARD_NO_BROWSER` 关闭 | **无对应**：Charles 是 GUI 应用，网页界面不自动打开浏览器 | 待实现（纯对齐 mitmweb，Charles 无此概念） |
+| T1 | `--web-host` | 已支持，默认 `127.0.0.1`；绑定非 loopback 时启动日志警告「UI 无鉴权」 | Proxy → Web Interface Settings：只有「启用」与「访问控制」，没有绑定地址项 | 完成 |
+| T2 | `--web-open-browser` / `--no-web-open-browser` | 已支持；环境变量 `MITMBOARD_NO_BROWSER` 作为默认值，命令行参数优先 | **无对应**：Charles 是 GUI 应用，网页界面不自动打开浏览器 | 完成 |
 | T3 | `--set web_password` | 不支持，UI 无鉴权（该 `--set` 目前同样被静默忽略） | Proxy → Web Interface Settings：可匿名，也可配置用户名与密码 | 已映射，本轮明确不做（单人使用）；若将来开放非 loopback 绑定，应重新评估 |
-| T5 | `--set web_port=`、`--set web_host=`、`--set web_open_browser=` | 现状最差：mitmdump 对未知 `--set` 选项**静默接受并忽略**，所以这些写法写了也不生效，且没有任何提示 | Proxy → Web Interface Settings（端口 / 访问控制） | 待实现：在 addon 里注册同名选项，让 `--set` 原生生效 |
-| T4 | `--version`、`--help` | `--version` 打印 `Mitmproxy: 12.3.1`，不显示 Mitmboard；`--help` 打印 mitmdump 参数表，Mitmboard 自己的参数出现 0 次 | Charles：About Charles（GUI，无 CLI） | 待实现：help 分两组，version 打印两行 |
+| T5 | `--set web_port=`、`--set web_host=`、`--set web_open_browser=` | 已实现：addon 注册同名选项，`--set` 原生生效，并与专用参数按优先级合并 | Proxy → Web Interface Settings（端口 / 访问控制） | 完成 |
+| T4 | `--version`、`--help` | 已实现：`--version` 输出 `Mitmboard 0.2.0` 与 `Mitmproxy 12.3.1`；`--help` 列出 web 参数并指向 `--options` | Charles：About Charles（GUI，无 CLI） | 完成 |
 | — | `--set web_debug`、`--set web_columns` | 不适用 | **无对应**：这是 mitmweb 自身 UI 的调试与列配置 | 不做，记录在案 |
 
-## 未决
+## 已定的取舍
 
-- `--proxy-port` 是 Mitmboard 自造参数（等价于 `-p`），mitmweb 没有。保留为隐藏别名、还是删除，待定。
-- 无密码前提下 `--web-host` 是否允许绑定非 loopback 地址（等于匿名访问），待定。
-- 参数优先级（专用参数 / `--set` / 环境变量 / 默认）与冲突提示措辞，待定。
+- `--proxy-port` 已删除（与 mitmweb 只留一套名字）。旧脚本改用 `-p`，误用时 CLI 直接报错并给出迁移提示。
+- 无密码前提下 `--web-host` 允许绑定任意地址，绑非 loopback 时启动日志警告：UI 无鉴权，能访问到的人可以改规则。
+- 优先级：专用参数 > `--set` > 环境变量 > 默认值。专用参数与 `--set` 冲突时以专用参数为准，并打印一行提示。
+- `--set web_password` 仍不支持（单人使用，见 ADR 0005 之后的范围收敛），保留在 T3。
 
 ## 复现方式
 
 ```bash
-.venv/bin/mitmboard --help | grep -c "proxy-port\|web-port"   # 0：我们的参数不在 help 里
-.venv/bin/mitmboard --version                                  # Mitmproxy: 12.3.1
-.venv/bin/mitmdump --web-host 0.0.0.0                          # error: unrecognized arguments
+.venv/bin/mitmboard --help            # 列出 web 参数，并指向 --options
+.venv/bin/mitmboard --version         # Mitmboard 0.2.0 / Mitmproxy 12.3.1
+.venv/bin/mitmboard --proxy-port 9090 # 报错：改用 -p/--listen-port
+.venv/bin/mitmboard -p 9090 --set web_port=9091   # 代理 9090，UI 9091
 ```

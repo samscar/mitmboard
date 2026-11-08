@@ -81,7 +81,7 @@ def _collect_output(proc: subprocess.Popen) -> str:
 def main(binary: str) -> int:
     proxy, web = free_port(), free_port()
     env = {**os.environ, "MITMBOARD_NO_BROWSER": "1"}
-    proc = subprocess.Popen([binary, "--proxy-port", str(proxy), "--web-port", str(web)],
+    proc = subprocess.Popen([binary, "-p", str(proxy), "--web-port", str(web)],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             **_popen_kwargs())
     try:

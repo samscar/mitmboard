@@ -116,7 +116,7 @@ pub fn run() {
                 app.shell()
                     .sidecar("mitmboard-backend")?
                     .args([
-                        "--proxy-port", &proxy_port.to_string(),
+                        "-p", &proxy_port.to_string(),
                         "--web-port", &web_port.to_string(),
                         "--set", "termlog_verbosity=warn",
                     ])

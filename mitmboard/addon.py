@@ -75,12 +75,18 @@ class Mitmboard:
         self._modified: set[str] = set()
 
     def load(self, loader: Loader) -> None:
-        loader.add_option("mitmboard_web_port", int, 8081, "Mitmboard web UI port")
+        # Same names and defaults as mitmweb: `--set web_port=9091` therefore
+        # works here too, and the CLI can hand its flags over as plain --set
+        # values instead of inventing a second spelling.
+        loader.add_option("web_port", int, 8081, "Mitmboard web UI port")
+        loader.add_option("web_host", str, "127.0.0.1", "Mitmboard web UI host")
+        loader.add_option("web_open_browser", bool, True, "Open the web UI in a browser on startup")
 
     async def running(self) -> None:
-        import os, uvicorn, webbrowser
+        import uvicorn, webbrowser
         from mitmboard.server import make_app
-        port = ctx.options.mitmboard_web_port
+        port = ctx.options.web_port
+        host = ctx.options.web_host
         proxy_port = ctx.options.listen_port or 8080
         app = make_app(self.store, self.registry, self.broadcaster,
                        replayer=self.replay, edited_replayer=self.replay_edited,
@@ -93,13 +99,19 @@ class Mitmboard:
                        maplocal_dir=managed_dir(),
                        save_response_file=self.save_response_file,
                        web_port=port, proxy_port=proxy_port)
-        config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+        config = uvicorn.Config(app, host=host, port=port, log_level="warning")
         asyncio.ensure_future(uvicorn.Server(config).serve())
         asyncio.ensure_future(self._sweep_loop())
-        # The desktop shell hosts the UI in its own window, so it sets this
-        # to suppress the browser tab the CLI opens.
-        if not os.environ.get("MITMBOARD_NO_BROWSER"):
-            webbrowser.open(f"http://127.0.0.1:{port}")
+        # The UI has no authentication. Say so out loud when it is reachable
+        # from the network instead of assuming the user meant it.
+        if host not in ("127.0.0.1", "localhost", "::1"):
+            _log.warning(
+                "Mitmboard web UI is bound to %s without authentication; "
+                "anyone who can reach it can change Map Local rules and breakpoints.", host
+            )
+        if ctx.options.web_open_browser:
+            shown = "127.0.0.1" if host in ("0.0.0.0", "::", "") else host
+            webbrowser.open(f"http://{shown}:{port}")
 
     def _publish(self, evt: dict) -> None:
         fut = asyncio.ensure_future(self.broadcaster.publish(evt))
