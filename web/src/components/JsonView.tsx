@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { classify, collapsedLabel } from "../json/summary";
+import { tokenizeLines, findMatches, type HlToken } from "../json/highlight";
 
 function parse(body: string | null): { ok: boolean; value?: unknown } {
   if (body == null) return { ok: false };
@@ -43,33 +44,79 @@ function Node({ k, value, depth, collapseSignal }: { k?: string; value: unknown;
   );
 }
 
-// Tokenize a line of markup into tag/text spans for lightweight highlighting.
-function markupTokens(line: string) {
-  const out: { tag: boolean; v: string }[] = [];
-  const re = /<\/?[a-zA-Z!?][^>]*>/g;
-  let last = 0, m: RegExpExecArray | null;
-  while ((m = re.exec(line))) {
-    if (m.index > last) out.push({ tag: false, v: line.slice(last, m.index) });
-    out.push({ tag: true, v: m[0] });
-    last = m.index + m[0].length;
+/** One find match with its position in the whole-body reading order. */
+type LineMatch = { line: number; start: number; length: number; ordinal: number };
+
+/** Render one line as runs of (class, mark) segments. Matched characters are
+ *  wrapped in <mark> that keeps the token class, so token color and find
+ *  highlight stack without nested spans. */
+function findLineNodes(pieces: HlToken[], matches: LineMatch[], active: number) {
+  const chars: { ch: string; cls?: string; mark: number }[] = [];
+  for (const p of pieces) for (const ch of p.text) chars.push({ ch, cls: p.cls, mark: -1 });
+  for (const m of matches) {
+    for (let i = m.start; i < m.start + m.length && i < chars.length; i++) chars[i].mark = m.ordinal;
   }
-  if (last < line.length) out.push({ tag: false, v: line.slice(last) });
-  return out.length ? out : [{ tag: false, v: line }];
+  const runs: React.ReactNode[] = [];
+  let i = 0, key = 0;
+  while (i < chars.length) {
+    const { cls, mark } = chars[i];
+    let j = i;
+    while (j < chars.length && chars[j].cls === cls && chars[j].mark === mark) j++;
+    const text = chars.slice(i, j).map((c) => c.ch).join("");
+    if (mark >= 0) {
+      runs.push(<mark key={key++} className={["jv-find", cls, mark === active ? "jv-find-current" : ""].filter(Boolean).join(" ")}>{text}</mark>);
+    } else if (cls) {
+      runs.push(<span key={key++} className={cls}>{text}</span>);
+    } else {
+      runs.push(text);
+    }
+    i = j;
+  }
+  return runs.length ? runs : "​";
 }
 
-export function RawLines({ text, markup }: { text: string; markup?: boolean }) {
+export function RawLines({ text, lang, find }: { text: string; lang?: "json" | "markup"; find?: { query: string; active: number } }) {
   const lines = text.split("\n");
+  // Token rendering keeps the gutter a plain line-number column; each line is
+  // a list of colored spans. An empty line still needs the zero-width space
+  // to hold its height, same as the plain path.
+  const tokens = lang ? tokenizeLines(text, lang) : null;
+  const query = find?.query ?? "";
+  const active = find?.active ?? -1;
+  const allMatches = query ? findMatches(text, query) : [];
+  const byLine = new Map<number, LineMatch[]>();
+  allMatches.forEach((m, ordinal) => {
+    const list = byLine.get(m.line) ?? [];
+    list.push({ ...m, ordinal });
+    byLine.set(m.line, list);
+  });
+  // Jump to the current match whenever it moves.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!query) return;
+    const el = wrapRef.current?.querySelector(".jv-find-current") as HTMLElement | null;
+    // jsdom (tests) has no scrollIntoView.
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
+  }, [query, active, text, lang]);
   return (
-    <div className="jv-raw-wrap">
+    <div className="jv-raw-wrap" ref={wrapRef}>
       <div className="jv-gutter">{lines.map((_, i) => <div key={i}>{i + 1}</div>)}</div>
       <pre className="jv-raw">
-        {lines.map((ln, i) => (
-          <div key={i} className="jv-line">
-            {markup
-              ? markupTokens(ln).map((tok, j) => <span key={j} className={tok.tag ? "jv-tag" : undefined}>{tok.v}</span>)
-              : (ln || "​")}
-          </div>
-        ))}
+        {lines.map((ln, i) => {
+          const lineMatches = byLine.get(i);
+          let content: React.ReactNode;
+          if (lineMatches) {
+            const pieces = tokens ? (tokens[i] ?? []) : [{ text: ln }];
+            content = findLineNodes(pieces, lineMatches, active);
+          } else if (tokens) {
+            content = tokens[i]?.length
+              ? tokens[i].map((tok, j) => <span key={j} className={tok.cls}>{tok.text}</span>)
+              : "​";
+          } else {
+            content = ln || "​";
+          }
+          return <div key={i} className="jv-line">{content}</div>;
+        })}
       </pre>
     </div>
   );
@@ -123,7 +170,7 @@ export function JsonView({ body, contentType, status, reason, label = "RESPONSE 
       ) : isJson && effMode === "pretty" ? (
         <div className="jv-tree"><Node value={parsed.value} depth={0} collapseSignal={collapseSignal} /></div>
       ) : (
-        <RawLines text={isJson ? prettyJson : body} markup={isMarkup} />
+        <RawLines text={isJson ? prettyJson : body} lang={isMarkup ? "markup" : undefined} />
       )}
     </div>
   );

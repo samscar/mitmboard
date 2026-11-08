@@ -6,30 +6,42 @@ export type ListMode = "sequence" | "structure";
 
 const DETAIL_WIDTH_KEY = "mitmboard.detailWidth";
 const LIST_MODE_KEY = "mitmboard.listMode";
-const DEFAULT_DETAIL_WIDTH = 420;
+// Charles gives the detail side roughly half the window and lets you drag it
+// most of the way across; the old 60% cap is what stopped the pane from
+// moving further left.
+const DETAIL_MIN = 320;
+// Charles opens with the detail pane taking about 60% of the window; widths
+// saved below that floor come from the older layouts, not from a drag.
+const DETAIL_LEGACY_FLOOR = 560;
 
 function loadListMode(): ListMode {
   try {
-    return localStorage.getItem(LIST_MODE_KEY) === "structure" ? "structure" : "sequence";
+    // Charles opens on Structure; the default follows.
+    return localStorage.getItem(LIST_MODE_KEY) === "sequence" ? "sequence" : "structure";
   } catch {
-    return "sequence";
+    return "structure";
   }
 }
 
+const detailDefault = () => Math.max(DETAIL_LEGACY_FLOOR, Math.round(window.innerWidth * 0.62));
+
 function clampDetailWidth(n: number): number {
-  const max = Math.max(320, window.innerWidth * 0.6);
-  return Math.min(Math.max(n, 320), max);
+  const max = Math.max(DETAIL_MIN, Math.round(window.innerWidth * 0.8));
+  return Math.min(Math.max(n, DETAIL_MIN), max);
 }
 
 function loadDetailWidth(): number {
   try {
     const raw = localStorage.getItem(DETAIL_WIDTH_KEY);
-    if (raw == null) return DEFAULT_DETAIL_WIDTH;
+    if (raw == null) return detailDefault();
     const n = Number(raw);
-    if (!Number.isFinite(n)) return DEFAULT_DETAIL_WIDTH;
+    if (!Number.isFinite(n)) return detailDefault();
+    // A width saved under the old layout can sit below the new default;
+    // treat it as legacy rather than re-serving the cramped split.
+    if (n < DETAIL_LEGACY_FLOOR) return detailDefault();
     return clampDetailWidth(n);
   } catch {
-    return DEFAULT_DETAIL_WIDTH;
+    return detailDefault();
   }
 }
 

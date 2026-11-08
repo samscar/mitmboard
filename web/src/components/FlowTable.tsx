@@ -77,7 +77,7 @@ export function FlowTable() {
             <div key={f.id} role="row" className={"flowrow" + (f.id === selectedId ? " selected" : "")}
                  onClick={() => onClickPaused(f)}>
               <span className="dot" style={{ background: statusColor(f.response?.status) }} />
-              <span className="method" style={{ color: methodColor[f.method] ?? "#E7EAF0" }}>{f.method}</span>
+              <span className="method" style={{ color: methodColor[f.method] ?? "#1F2430" }}>{f.method}</span>
               <span className="status"><span className="p-badge">PAUSED</span></span>
               <span className="host">{f.host}</span>
               <span className="path">{f.path}</span>
@@ -95,7 +95,7 @@ export function FlowTable() {
              onClick={() => onClick(f)}
              onContextMenu={(e) => openMenu(e, f)}>
           <span className="dot" style={{ background: statusColor(f.response?.status) }} />
-          <span className="method" style={{ color: methodColor[f.method] ?? "#E7EAF0" }}>{f.method}</span>
+          <span className="method" style={{ color: methodColor[f.method] ?? "#1F2430" }}>{f.method}</span>
           <span className="status" style={{ color: statusColor(f.response?.status) }}>
             {f.maplocal_rule_id && <span className="mapped-badge">MAPPED</span>}
             {f.response?.status ?? "…"}

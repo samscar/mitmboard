@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { MenuBar } from "./components/MenuBar";
 import { TopBar } from "./components/TopBar";
 import { ListPanel } from "./components/ListPanel";
 import { DetailPane } from "./components/DetailPane";
 import { StatusBar } from "./components/StatusBar";
 import { EmptyState } from "./components/EmptyState";
-import { ConnectDeviceModal } from "./components/ConnectDeviceModal";
+import { Dialogs } from "./components/Dialogs";
+import { useUi } from "./uiStore";
 import { connectWS } from "./ws";
 import { fetchFlows, fetchPassthrough, fetchWsMessages, fetchBreakpoints, fetchPaused, fetchMaplocal } from "./api";
 import { useStore } from "./store";
@@ -13,7 +15,7 @@ import { isOverlayOpen, isTypingTarget } from "./keyboard";
 import "./theme.css";
 
 export function App() {
-  const [showConnect, setShowConnect] = useState(false);
+  const openDialog = useUi((s) => s.openDialog);
   const upsert = useStore((s) => s.upsertFlow);
   const setPassthrough = useStore((s) => s.setPassthrough);
   const appendWsMessage = useStore((s) => s.appendWsMessage);
@@ -114,10 +116,11 @@ export function App() {
   }, [upsert, setPassthrough, appendWsMessage, mergeWsMessages, setBreakpoints, setPaused, addPaused, removePaused, setMaplocal]);
   return (
     <div className="app">
-      <TopBar onConnect={() => setShowConnect(true)} />
+      <MenuBar />
+      <TopBar />
       <div className="body">
         {isEmpty ? (
-          <EmptyState onConnect={() => setShowConnect(true)} />
+          <EmptyState onConnect={() => openDialog("connect")} />
         ) : (
           <>
             <ListPanel />
@@ -132,7 +135,7 @@ export function App() {
         )}
       </div>
       <StatusBar />
-      {showConnect && <ConnectDeviceModal onClose={() => setShowConnect(false)} />}
+      <Dialogs />
     </div>
   );
 }

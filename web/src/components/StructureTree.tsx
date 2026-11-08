@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { fetchDetail } from "../api";
-import { bytes, methodColor, statusColor } from "../format";
 import { draftRuleForDir, draftRuleForHost, replaceRule, saveRuleFirst, setRuleEnabled } from "../maplocal";
 import { flowMenuItems, type MenuItem } from "../flowMenu";
 import { selectFlow, selectNode } from "../selection";
 import { arrowKeysAvailable } from "../keyboard";
 import { ContextMenu } from "./ContextMenu";
+import { FlowIcon, FolderIcon } from "./FlowIcon";
+import { LockOpenIcon } from "./LockOpenIcon";
 import { MapLocalDialog } from "./MapLocalDialog";
 import { ReplayModal } from "./ReplayModal";
 import type { FlowDetail, FlowMeta, MapLocalRule } from "../types";
@@ -17,6 +18,9 @@ interface Folder {
   count: number;
   folders: Map<string, Folder>;
   leaves: FlowMeta[];
+  /** Set on hosts that are forwarded encrypted (Charles' <encrypted>): they
+      carry no decodable flows, so without the flag they would be invisible. */
+  encrypted?: boolean;
 }
 
 const OTHER_HOSTS = "__other_hosts__";
@@ -57,14 +61,6 @@ function buildTree(flows: FlowMeta[]): Folder[] {
   return [...hosts.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function allFolderKeys(folders: Folder[], out: string[] = []): string[] {
-  for (const f of folders) {
-    out.push(f.key);
-    allFolderKeys([...f.folders.values()], out);
-  }
-  return out;
-}
-
 type Item = { kind: "folder"; node: Folder; depth: number } | { kind: "leaf"; flow: FlowMeta; depth: number };
 
 export function StructureTree() {
@@ -92,21 +88,45 @@ export function StructureTree() {
   // as FlowTable's own render.
   const tree = useMemo(() => buildTree(rows), [rows]);
 
+  const passthrough = useStore((s) => s.passthrough);
+  const query = useStore((s) => s.query);
+  // Charles lists hosts it cannot decrypt as <encrypted> rows. A passed-through
+  // host carries no decodable flows at all, so without a placeholder it would
+  // be completely invisible in the tree. The placeholder is structural context
+  // though, not a request: while a filter is active the user asked for matching
+  // requests only, so every placeholder bows out -- otherwise a pile of
+  // <encrypted> hosts surviving the filter reads as "the filter did nothing".
+  const baseTree = useMemo(() => {
+    if (query.trim() !== "") return tree;
+    const active = passthrough.filter((p) => p.active);
+    if (active.length === 0) return tree;
+    const out = tree.map((n) => ({ ...n }));
+    const byName = new Map(out.map((n) => [n.name, n]));
+    for (const p of active) {
+      const existing = byName.get(p.host);
+      if (existing) { existing.encrypted = true; continue; }
+      const node = folder(p.host, p.host);
+      node.encrypted = true;
+      out.push(node);
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }, [tree, passthrough, query]);
+
   // Focused hosts pin to the top in focus order; everything else lands in one
   // Other Hosts folder instead of disappearing.
-  const { top, focusedCount } = useMemo(() => {
-    const byHost = new Map(tree.map((n) => [n.name, n]));
+  const { top } = useMemo(() => {
+    const byHost = new Map(baseTree.map((n) => [n.name, n]));
     const pinned = focus.map((h) => byHost.get(h)).filter((n): n is Folder => !!n);
     // With nothing focused there is no Other Hosts grouping at all -- the tree
     // is just the tree.
-    if (pinned.length === 0) return { top: tree, focusedCount: 0 };
-    const rest = tree.filter((n) => !focus.includes(n.name));
+    if (pinned.length === 0) return { top: baseTree, focusedCount: 0 };
+    const rest = baseTree.filter((n) => !focus.includes(n.name));
     if (rest.length === 0) return { top: pinned, focusedCount: pinned.length };
     const other = folder(OTHER_HOSTS, "Other Hosts");
     other.count = rest.reduce((sum, n) => sum + n.count, 0);
     for (const n of rest) other.folders.set(n.name, n);
     return { top: [...pinned, other], focusedCount: pinned.length };
-  }, [tree, focus]);
+  }, [baseTree, focus]);
 
   const items = useMemo(() => {
     const out: Item[] = [];
@@ -203,27 +223,18 @@ export function StructureTree() {
     const p = paused[f.id];
     const segments = f.path.split("?")[0].split("/").filter(Boolean);
     const name = segments.length ? segments[segments.length - 1] : "/";
-    const status = f.response?.status;
     return (
       <div key={f.id} role="row"
-           className={"stree-row stree-leaf" + (f.id === selectedId ? " selected" : "")}
+           className={"stree-row stree-leaf"
+                      + (f.id === selectedId ? " selected" : "")
+                      + (p ? " is-paused" : "")}
            style={{ paddingLeft: 14 + depth * 14 }}
+           title={p ? `${f.method} ${f.path} — paused at a breakpoint` : `${f.method} ${f.path}`}
            onClick={() => { selectFlow(f.id).catch(() => {}); }}
            onContextMenu={(e) => openFlowMenu(e, f)}>
-        <span className="stree-caret leaf" aria-hidden="true">·</span>
-        <span className="stree-method" style={{ color: methodColor[f.method] ?? "#E7EAF0" }}>{f.method}</span>
-        <span className="stree-name" title={f.path}>{name}</span>
-        {p ? (
-          <span className="p-badge">PAUSED</span>
-        ) : (
-          <span className="stree-status" style={{ color: statusColor(status) }}>
-            {f.maplocal_rule_id && <span className="mapped-badge">MAPPED</span>}
-            {status ?? "…"}
-          </span>
-        )}
-        <span className="stree-size">
-          {f.kind === "ws" ? `${f.ws?.messages ?? 0} msg` : bytes(f.response?.size)}
-        </span>
+        <span className="stree-caret leaf" aria-hidden="true" />
+        <FlowIcon flow={f} />
+        <span className="stree-name">{name}</span>
       </div>
     );
   };
@@ -241,6 +252,7 @@ export function StructureTree() {
              className={"stree-row stree-folder" + (isHost ? " stree-host" : "") + (isOther ? " stree-other" : "")
                         + (node.key === selectedNode ? " selected" : "")}
              style={{ paddingLeft: 14 + depth * 14 }}
+             title={node.key}
              onClick={() => (isOther ? toggle(node.key) : selectNode(node.key))}
              onContextMenu={(e) => openFolderMenu(e, node, isHost)}>
           {/* Charles: clicking the row selects, only the caret collapses. */}
@@ -248,14 +260,23 @@ export function StructureTree() {
                 onClick={(e) => { e.stopPropagation(); toggle(node.key); }}>
             {isCollapsed ? "▸" : "▾"}
           </span>
-          <span className="stree-name" title={node.key}>{node.name}</span>
-          {isHost && focus.includes(node.name) && <span className="stree-focus" aria-label="Focused" />}
-          <span className="stree-count">{node.count}</span>
+          <FolderIcon open={!isCollapsed} />
+          <span className="stree-name">{node.name}</span>
         </div>
         {!isCollapsed && (
           <>
             {children.map((c) => renderFolder(c, depth + 1))}
             {node.leaves.map((f) => renderLeaf(f, depth + 1))}
+            {node.encrypted && (
+              // Charles' <encrypted> row: the tunnel exists, its content does not.
+              <div className="stree-row stree-encrypted"
+                   style={{ paddingLeft: 14 + (depth + 1) * 14 }}
+                   title="Traffic to this host is forwarded encrypted — its app refused the proxy certificate">
+                <span className="stree-caret leaf" aria-hidden="true" />
+                <LockOpenIcon size={13} />
+                <span className="stree-name">{"<encrypted>"}</span>
+              </div>
+            )}
           </>
         )}
       </Fragment>
@@ -264,14 +285,6 @@ export function StructureTree() {
 
   return (
     <div className="stree" role="table">
-      <div className="stree-head" role="row">
-        <span className="stree-head-title">
-          {tree.length} host{tree.length === 1 ? "" : "s"} · {rows.length} request{rows.length === 1 ? "" : "s"}
-          {focusedCount > 0 && ` · ${focusedCount} focused`}
-        </span>
-        <button className="stree-act" onClick={() => setCollapsed(new Set())}>Expand all</button>
-        <button className="stree-act" onClick={() => setCollapsed(new Set(allFolderKeys(tree)))}>Collapse all</button>
-      </div>
       {rows.length === 0 ? (
         <div className="empty">{total > 0 ? "No requests match the filter" : "Waiting for traffic…"}</div>
       ) : (

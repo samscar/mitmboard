@@ -10,30 +10,6 @@ describe("FilterBar", () => {
     fireEvent.change(screen.getByPlaceholderText(/status:/i), { target: { value: "status:>=400" } });
     expect(useStore.getState().query).toBe("status:>=400");
   });
-  it("errors-only chip sets query", () => {
-    render(<FilterBar />);
-    fireEvent.click(screen.getByText(/errors only/i));
-    expect(useStore.getState().query).toContain("status:>=400");
-  });
-});
-
-describe("FilterBar quick method chips", () => {
-  beforeEach(() => useStore.getState().clear());
-  it("clicking GET sets the method query and marks it active", () => {
-    render(<FilterBar />);
-    const get = screen.getByRole("button", { name: "GET" });
-    fireEvent.click(get);
-    expect(useStore.getState().query).toBe("method:GET");
-    expect(get.className).toContain("active");
-  });
-  it("4xx sets a status range and All clears everything", () => {
-    render(<FilterBar />);
-    fireEvent.click(screen.getByRole("button", { name: "4xx" }));
-    expect(useStore.getState().query).toBe("status:>=400 status:<=499");
-    fireEvent.click(screen.getByRole("button", { name: "All" }));
-    expect(useStore.getState().query).toBe("");
-    expect(screen.getByRole("button", { name: "All" }).className).toContain("active");
-  });
 });
 
 describe("FilterBar autocomplete + chips", () => {
@@ -52,5 +28,10 @@ describe("FilterBar autocomplete + chips", () => {
     const chip = screen.getByText("status:>=400");
     fireEvent.click(chip.querySelector("button")!);         // remove the chip
     expect(useStore.getState().query.trim()).toBe("host:*.soum.sa");
+  });
+  it("reaches saved filters from the star button", () => {
+    render(<FilterBar />);
+    fireEvent.click(screen.getByLabelText("Saved filters"));
+    expect(screen.getByText(/Save current/)).toBeInTheDocument();
   });
 });

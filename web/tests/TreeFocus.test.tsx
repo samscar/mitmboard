@@ -145,8 +145,9 @@ describe("focus", () => {
 
     await waitFor(() => expect(screen.getByText("Other Hosts")).toBeInTheDocument());
     const hosts = [...document.querySelectorAll(".stree-host .stree-name")].map((n) => n.textContent);
+    // Charles marks focus by pinning the host above Other Hosts, not by a badge.
     expect(hosts[0]).toBe("api.soum.sa");
-    expect(screen.getByLabelText("Focused")).toBeInTheDocument();
+    expect(useStore.getState().focus).toEqual(["api.soum.sa"]);
   });
 
   it("clears focus on Escape before clearing the selection", async () => {
@@ -262,6 +263,80 @@ describe("Other Hosts container", () => {
 
     expect(useStore.getState().selectedNode).toBeNull();
     expect(screen.queryByRole("region", { name: "Node summary" })).toBeNull();
+  });
+});
+
+describe("encrypted placeholders (passed-through hosts)", () => {
+  beforeEach(() => {
+    useStore.getState().clear();
+    useStore.getState().setListMode("structure");
+    useStore.getState().setPassthrough([]);
+  });
+
+  const pinned = {
+    host: "pinned.example.com", source: "auto" as const, active: true, failures: 2,
+    clients: ["1.1.1.1"], first_seen: 1, last_seen: 2,
+  };
+
+  it("shows a host that is forwarded encrypted as an <encrypted> row", () => {
+    // A passed-through host carries no decodable flows, so without a
+    // placeholder it would be invisible -- Charles lists it as <encrypted>.
+    stubApi([mk("a", { host: "api.soum.sa" })]);
+    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
+    useStore.getState().setPassthrough([pinned]);
+    render(<App />);
+
+    expect(screen.getByText("<encrypted>")).toBeInTheDocument();
+    expect(document.querySelectorAll(".stree-encrypted")).toHaveLength(1);
+  });
+
+  it("does not duplicate the placeholder when the host also has captured flows", () => {
+    stubApi([mk("a", { host: "pinned.example.com" })]);
+    useStore.getState().upsertFlow(mk("a", { host: "pinned.example.com" }));
+    useStore.getState().setPassthrough([pinned]);
+    render(<App />);
+
+    const rows = document.querySelectorAll(".stree-encrypted");
+    expect(rows).toHaveLength(1);
+    // The real flow still renders beside it.
+    expect(screen.getByText("items")).toBeInTheDocument();
+  });
+
+  it("hides watching hosts that have not flipped yet", () => {
+    stubApi([mk("a", { host: "api.soum.sa" })]);
+    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
+    useStore.getState().setPassthrough([{ ...pinned, active: false }]);
+    render(<App />);
+
+    expect(screen.queryByText("<encrypted>")).toBeNull();
+  });
+
+  it("hides the placeholder host while a filter is active", () => {
+    // The placeholder is context, not a request: with a query applied the user
+    // asked for matching requests only, so a passthrough host with no matching
+    // flow must disappear rather than read as "the filter did nothing".
+    stubApi([mk("a", { host: "api.soum.sa" })]);
+    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
+    useStore.getState().setPassthrough([pinned]);
+    useStore.getState().setQuery("soum");
+    render(<App />);
+
+    expect(screen.queryByText("<encrypted>")).toBeNull();
+    expect(screen.queryByText("pinned.example.com")).toBeNull();
+    expect(screen.getByText("items")).toBeInTheDocument(); // real matching flow survives
+  });
+
+  it("drops the <encrypted> row beside matching flows while filtering", () => {
+    // The host itself earns its place via matching flows, but the <encrypted>
+    // child is still context-only noise under an active filter.
+    stubApi([mk("a", { host: "pinned.example.com" })]);
+    useStore.getState().upsertFlow(mk("a", { host: "pinned.example.com" }));
+    useStore.getState().setPassthrough([pinned]);
+    useStore.getState().setQuery("pinned");
+    render(<App />);
+
+    expect(screen.queryByText("<encrypted>")).toBeNull();
+    expect(screen.getByText("items")).toBeInTheDocument();
   });
 });
 

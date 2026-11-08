@@ -48,9 +48,9 @@ describe("passthrough modal", () => {
 
   it("opens from the top-bar count and lists hosts with their state", async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /2 passthrough/ }));
+    fireEvent.click(screen.getByRole("button", { name: /2 encrypted/ }));
 
-    const modal = await screen.findByRole("dialog", { name: "Passthrough hosts" });
+    const modal = await screen.findByRole("dialog", { name: "Encrypted hosts" });
     expect(modal).toHaveTextContent("pinned.example.com");
     expect(modal).toHaveTextContent("pinned · 3 refused");
     expect(modal).toHaveTextContent("watching · 1 refused");
@@ -59,8 +59,8 @@ describe("passthrough modal", () => {
 
   it("offers Retry only for pinned, non-config hosts", async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /2 passthrough/ }));
-    const modal = await screen.findByRole("dialog", { name: "Passthrough hosts" });
+    fireEvent.click(screen.getByRole("button", { name: /2 encrypted/ }));
+    const modal = await screen.findByRole("dialog", { name: "Encrypted hosts" });
 
     expect(modal.querySelectorAll("button.chip")).toHaveLength(2); // retry + close
     const retry = screen.getByRole("button", { name: "Retry" });
@@ -69,8 +69,8 @@ describe("passthrough modal", () => {
 
   it("removes the host from the list after a successful retry", async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /2 passthrough/ }));
-    await screen.findByRole("dialog", { name: "Passthrough hosts" });
+    fireEvent.click(screen.getByRole("button", { name: /2 encrypted/ }));
+    await screen.findByRole("dialog", { name: "Encrypted hosts" });
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
@@ -81,8 +81,8 @@ describe("passthrough modal", () => {
   it("keeps the row and shows an inline error when retry is refused", async () => {
     deleteStatus = 409;
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /2 passthrough/ }));
-    await screen.findByRole("dialog", { name: "Passthrough hosts" });
+    fireEvent.click(screen.getByRole("button", { name: /2 encrypted/ }));
+    await screen.findByRole("dialog", { name: "Encrypted hosts" });
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 

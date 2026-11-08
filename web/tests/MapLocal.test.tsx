@@ -179,25 +179,7 @@ describe("Map Local upload limit", () => {
   });
 });
 
-describe("a mapped request in the detail pane", () => {
-  beforeEach(() => {
-    useStore.getState().clear();
-    useStore.getState().setListMode("sequence");
-  });
-
-  it("offers edit and disable instead of a second Map Local rule", async () => {
-    const hit = mk("a", { maplocal_rule_id: "r1", maplocal_file: "/managed/a.json" });
-    const mapped = { id: "r1", enabled: true, host: "api.soum.sa", path: "/v2/items", method: "GET",
-                     file: "/managed/a.json", status: 200 };
-    stubApi([hit], { enabled: true, rules: [mapped] });
-    useStore.getState().setMaplocal({ enabled: true, rules: [mapped] });
-    useStore.getState().upsertFlow(hit);
-    render(<App />);
-
-    fireEvent.click(firstRow());
-    await waitFor(() => screen.getByRole("button", { name: "Edit Map Local rule…" }));
-    expect(screen.getByRole("button", { name: "Disable this rule" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Map Local…" })).toBeNull();
-  });
-});
+// "offers edit and disable instead of a second Map Local rule" moved to
+// MapLocalRules.test.tsx: the detail pane no longer carries its own button
+// row, so the context menu is the only surface for those commands.
 

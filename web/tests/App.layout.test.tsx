@@ -26,15 +26,16 @@ describe("Inspector layout", () => {
     render(<App />);
     expect(screen.queryByRole("tab", { name: "Devices" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Dashboard" })).toBeNull();
-    expect(document.querySelector(".view-switch")).toBeNull();
   });
 
-  it("keeps the Sequence/Structure switch in the tree panel header", () => {
+  it("puts the Sequence/Structure switch in the toolbar, not a panel header", () => {
     useStore.getState().upsertFlow(mk("1"));
     render(<App />);
 
-    const head = document.querySelector(".listpanel .lp-head") as HTMLElement;
-    expect(head).toBeInTheDocument();
+    // Charles keeps the switch in the window toolbar; the panel has no header.
+    expect(document.querySelector(".listpanel .lp-head")).toBeNull();
+    expect(document.querySelector(".topbar .view-switch")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Structure" }));
     expect(document.querySelector(".listpanel .stree")).toBeInTheDocument();
   });
@@ -53,19 +54,21 @@ describe("Inspector layout", () => {
 describe("top bar and status bar chrome", () => {
   beforeEach(() => useStore.getState().clear());
 
-  it("keeps only icon actions, each with a tooltip label", () => {
+  it("mirrors Charles' toolbar, each icon labelled in a tooltip", () => {
     useStore.getState().upsertFlow(mk("1"));
     render(<App />);
 
     const labels = [...document.querySelectorAll(".topbar .tb-icon")].map((b) => b.getAttribute("aria-label"));
-    expect(labels).toEqual(["Clear", "Replay", "Connect device", "Export", "Map Local", "Settings"]);
-    expect(document.querySelector(".topbar")!.textContent).not.toContain("Recording");
+    expect(labels).toEqual([
+      "Clear Session", "Compose", "Repeat",
+      "macOS Proxy", "Start Recording", "SSL Proxying", "Throttling", "Breakpoints",
+    ]);
   });
 
-  it("disables Replay until a request is selected", () => {
+  it("marks Repeat inert until a request is selected", () => {
     useStore.getState().upsertFlow(mk("1"));
     render(<App />);
-    expect(screen.getByLabelText("Replay")).toBeDisabled();
+    expect(screen.getByLabelText("Repeat")).toHaveAttribute("aria-disabled", "true");
   });
 
   it("opens Breakpoints from the status bar", async () => {
@@ -76,4 +79,3 @@ describe("top bar and status bar chrome", () => {
     expect(await screen.findByRole("heading", { name: "Breakpoints" })).toBeInTheDocument();
   });
 });
-

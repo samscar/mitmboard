@@ -57,6 +57,12 @@ const rule = (over: Partial<MapLocal["rules"][number]> = {}) => ({
   ...over,
 });
 
+/** Map Local lives under the Tools menu, the way Charles organises it. */
+const openMapLocalDialog = () => {
+  fireEvent.click(screen.getByRole("menuitem", { name: "Tools" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Map Local" }));
+};
+
 describe("Map Local rules modal", () => {
   beforeEach(() => {
     useStore.getState().clear();
@@ -64,16 +70,23 @@ describe("Map Local rules modal", () => {
     useStore.getState().setMaplocal({ enabled: true, rules: [] });
   });
 
-  it("lights the top-bar dot only when a rule can actually fire", () => {
+  it("check-marks Map Local in the Tools menu only when a rule can actually fire", async () => {
     stubApi([mk("a")], { enabled: true, rules: [rule({ enabled: false })] });
     useStore.getState().setMaplocal({ enabled: true, rules: [rule({ enabled: false })] });
-    const { unmount } = render(<App />);
+    useStore.getState().upsertFlow(mk("a"));
+    render(<App />);
 
-    const dot = () => screen.getByRole("button", { name: "Map Local" }).querySelector(".tb-bp-dot")!;
-    expect(dot().className).toContain("off");
+    const armed = () => {
+      fireEvent.click(screen.getByRole("menuitem", { name: "Tools" }));
+      const item = screen.getByRole("menuitem", { name: "Map Local" });
+      const on = item.className.includes("is-checked");
+      fireEvent.keyDown(document, { key: "Escape" });
+      return on;
+    };
 
+    expect(armed()).toBe(false);
     useStore.getState().setMaplocal({ enabled: true, rules: [rule()] });
-    return waitFor(() => expect(dot().className).toContain("armed")).then(() => unmount());
+    await waitFor(() => expect(armed()).toBe(true));
   });
 
   it("saves a toggled-off rule", async () => {
@@ -81,7 +94,7 @@ describe("Map Local rules modal", () => {
     useStore.getState().setMaplocal({ enabled: true, rules: [rule()] });
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Map Local" }));
+    openMapLocalDialog();
     fireEvent.click(screen.getByLabelText("Enable api.soum.sa/v2/*"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -95,7 +108,7 @@ describe("Map Local rules modal", () => {
     useStore.getState().setMaplocal({ enabled: true, rules: two });
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Map Local" }));
+    openMapLocalDialog();
     fireEvent.click(screen.getByLabelText("Move api.soum.sa/v2/* down"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -108,7 +121,7 @@ describe("Map Local rules modal", () => {
     useStore.getState().setMaplocal({ enabled: true, rules: [rule()] });
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Map Local" }));
+    openMapLocalDialog();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: "Map Local rule" });
     expect(screen.getByLabelText("Local file")).toHaveValue("/managed/a.json");
@@ -126,7 +139,7 @@ describe("Map Local rules modal", () => {
     useStore.getState().setMaplocal({ enabled: true, rules: [rule()] });
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Map Local" }));
+    openMapLocalDialog();
     fireEvent.click(screen.getByLabelText("Delete api.soum.sa/v2/*"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

@@ -30,14 +30,14 @@ export function clockTime(ms?: number | null): string {
 
 /** Colour for an HTTP method label. */
 export const methodColor: Record<string, string> = {
-  GET: "#34D399", POST: "#FBBF24", PUT: "#60A5FA", DELETE: "#F87171", PATCH: "#A78BFA",
+  GET: "#0E9F6E", POST: "#B45309", PUT: "#2563EB", DELETE: "#DC2626", PATCH: "#7C3AED",
 };
 
 /** Colour for a status code dot or label. */
 export function statusColor(status?: number | null): string {
-  if (!status) return "#626C7E";
-  if (status >= 500) return "#F87171";
-  if (status >= 400) return "#FB923C";
-  if (status >= 300) return "#60A5FA";
-  return "#34D399";
+  if (!status) return "#8A93A3";
+  if (status >= 500) return "#DC2626";
+  if (status >= 400) return "#EA580C";
+  if (status >= 300) return "#2563EB";
+  return "#0E9F6E";
 }

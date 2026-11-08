@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { useStore } from "../store";
+import { useUi } from "../uiStore";
 import { useShallow } from "zustand/react/shallow";
 import { deriveClients } from "../clients";
 import { bytes } from "../format";
-import { BreakpointsModal } from "./BreakpointsModal";
 
 function BreakpointIcon() {
   return (
@@ -21,7 +20,7 @@ export function StatusBar() {
   const breakpoints = useStore((s) => s.breakpoints);
   const pausedCount = useStore((s) => Object.keys(s.paused).length);
   const armed = breakpoints.enabled && breakpoints.rules.some((r) => r.enabled);
-  const [showBreakpoints, setShowBreakpoints] = useState(false);
+  const openDialog = useUi((s) => s.openDialog);
   let down = 0, up = 0;
   const cutoff = Date.now() - 60_000;
   let recent = 0;
@@ -43,12 +42,11 @@ export function StatusBar() {
       <span className="sb-item mono">↓ {bytes(down)}  ↑ {bytes(up)}</span>
       <span className="sb-sep">·</span>
       <span className="sb-item mono">{recent}/min</span>
-      <button className="sb-bp" aria-label="Breakpoints" title="Breakpoints" onClick={() => setShowBreakpoints(true)}>
+      <button className="sb-bp" aria-label="Breakpoints" title="Breakpoints" onClick={() => openDialog("breakpoints")}>
         <span className={"tb-bp-dot " + (armed ? "armed" : "off")} />
         <BreakpointIcon />
         {pausedCount > 0 && <span className="tb-bp-paused">{pausedCount}</span>}
       </button>
-      {showBreakpoints && <BreakpointsModal onClose={() => setShowBreakpoints(false)} />}
     </div>
   );
 }

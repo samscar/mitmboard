@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { App } from "../src/App";
 import { useStore } from "../src/store";
+import { useUi } from "../src/uiStore";
 import type { FlowDetail, FlowMeta } from "../src/types";
 
 const mk = (id: string, over: Partial<FlowMeta> = {}): FlowMeta => ({
@@ -45,6 +46,7 @@ describe("node summary", () => {
   beforeEach(() => {
     useStore.getState().clear();
     useStore.getState().setListMode("structure");
+    useUi.setState({ detailTab: "overview" });
     const list = flows();
     stubApi(list);
     list.forEach((f) => useStore.getState().upsertFlow(f));
@@ -110,20 +112,29 @@ describe("node chart", () => {
   beforeEach(() => {
     useStore.getState().clear();
     useStore.getState().setListMode("structure");
+    useUi.setState({ detailTab: "overview" });
     const list = flows();
     stubApi(list);
     list.forEach((f) => useStore.getState().upsertFlow(f));
   });
 
-  it("shows the same status distribution the summary reports", async () => {
+  it("shows the status distribution on Overview, where Charles keeps the counts", async () => {
     render(<App />);
     fireEvent.click(document.querySelector(".stree-host") as HTMLElement);
-    fireEvent.click(await screen.findByRole("button", { name: "Chart" }));
 
     const chart = await screen.findByRole("region", { name: "Status distribution" });
     expect(chart).toHaveTextContent("2xx");
     expect(chart).toHaveTextContent("5xx");
     expect(chart).toHaveTextContent("Server error");
+  });
+
+  it("draws the group Chart as a timeline of every request under the node", async () => {
+    render(<App />);
+    fireEvent.click(document.querySelector(".stree-host") as HTMLElement);
+    fireEvent.click(await screen.findByRole("button", { name: "Chart" }));
+
+    await waitFor(() => expect(document.querySelectorAll(".wf-row")).toHaveLength(2));
+    expect(screen.getByText(/Timeline/)).toBeInTheDocument();
   });
 });
 

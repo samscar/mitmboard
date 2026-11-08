@@ -26,14 +26,14 @@ export function PassthroughModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal pt-modal" role="dialog" aria-label="Passthrough hosts" onClick={(e) => e.stopPropagation()}>
-        <h2>Passthrough</h2>
+      <div className="modal pt-modal" role="dialog" aria-label="Encrypted hosts" onClick={(e) => e.stopPropagation()}>
+        <h2>Encrypted hosts</h2>
         <p className="pt-intro">
-          Hosts whose apps refused the proxy certificate. They are forwarded encrypted, so their
-          traffic cannot be inspected until Retry succeeds.
+          Hosts whose apps refused the proxy certificate. They are forwarded encrypted — Charles shows
+          these as &lt;encrypted&gt; — so their traffic cannot be inspected until Retry succeeds.
         </p>
         {passthrough.length === 0 ? (
-          <div className="empty">No passthrough hosts</div>
+          <div className="empty">No encrypted hosts</div>
         ) : (
           <div className="pt-list">
             {passthrough.map((p) => {

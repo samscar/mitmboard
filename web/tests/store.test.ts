@@ -54,11 +54,11 @@ describe("store.detailWidth", () => {
     useStore.getState().setDetailWidth(100);
     expect(useStore.getState().detailWidth).toBe(320);
   });
-  it("clamps above 60% of window.innerWidth", () => {
+  it("clamps above 80% of window.innerWidth", () => {
     const originalInnerWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 1000, configurable: true });
     useStore.getState().setDetailWidth(900);
-    expect(useStore.getState().detailWidth).toBe(600);
+    expect(useStore.getState().detailWidth).toBe(800);
     Object.defineProperty(window, "innerWidth", { value: originalInnerWidth, configurable: true });
   });
   it("persists to localStorage under mitmboard.detailWidth", () => {

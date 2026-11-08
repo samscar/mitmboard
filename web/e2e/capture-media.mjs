@@ -39,16 +39,9 @@ const browser = await chromium.launch();
   await page.waitForTimeout(900);
   await page.getByRole("button", { name: "All", exact: true }).click().catch(() => {});
   await page.waitForTimeout(400);
-  await page.getByText("/users/1", { exact: true }).first().click();
-  await page.waitForTimeout(1200);
-  // DetailPane.tsx tabs are plain buttons (Overview/Headers/Body/Timing), not role="tab".
-  await page.getByRole("button", { name: "Headers", exact: true }).click().catch(() => {});
-  await page.waitForTimeout(900);
-  await page.getByRole("button", { name: "Timing", exact: true }).click().catch(() => {});
-  await page.waitForTimeout(900);
-  await page.getByRole("button", { name: "Body", exact: true }).click().catch(() => {});
-  await page.waitForTimeout(1200);
-  await page.getByRole("button", { name: "Edit & Resend", exact: true }).click().catch(() => {});
+  await page.getByText("/users/1", { exact: true }).first().click({ button: "right" });
+  await page.waitForTimeout(400);
+  await page.getByRole("menuitem", { name: "Edit & Resend", exact: true }).click().catch(() => {});
   await page.waitForTimeout(1500);
   // ReplayModal.tsx has no Escape handler; close it via its Cancel button.
   await page.getByRole("button", { name: "Cancel", exact: true }).click().catch(() => {});

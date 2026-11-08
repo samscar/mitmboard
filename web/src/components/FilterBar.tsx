@@ -4,14 +4,10 @@ import { suggest } from "../filters/suggest";
 import { listSaved, saveFilter } from "../savedFilters";
 import { DslHelp } from "./DslHelp";
 
-const QUICK: { label: string; q: string }[] = [
-  { label: "All", q: "" },
-  { label: "GET", q: "method:GET" },
-  { label: "POST", q: "method:POST" },
-  { label: "4xx", q: "status:>=400 status:<=499" },
-  { label: "5xx", q: "status:>=500" },
-];
-
+/** Charles keeps a single filter field at the bottom of the list panel. The
+    quick-chip row this once had made the panel two rows tall and pushed the
+    detail pane around, so the chips are gone: the DSL with autocomplete covers
+    the same queries by typing, and the star keeps saved filters reachable. */
 export function FilterBar() {
   const query = useStore((s) => s.query);
   const setQuery = useStore((s) => s.setQuery);
@@ -43,23 +39,26 @@ export function FilterBar() {
 
   return (
     <div className="filterbar">
-      <div className="quick-chips">
-        {QUICK.map((qc) => (
-          <button key={qc.label}
-                  className={"qchip" + (query.trim() === qc.q ? " active" : "")}
-                  onClick={() => setQuery(qc.q)}>
-            {qc.label}
-          </button>
-        ))}
-      </div>
       <div className="chips">
         {tokens.map((t, i) => (
           <span key={t + i} className="active-chip">{t}<button onClick={() => removeToken(i)}>✕</button></span>
         ))}
       </div>
-      <input className="search" aria-label="Filter" placeholder="status:>=400  host:*.soum.sa  path:/v2/*"
-             value={query} onChange={(e) => setQuery(e.target.value)}
-             onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} />
+      <div className="filterline">
+        <input className="search" aria-label="Filter" placeholder="status:>=400  host:*.soum.sa  path:/v2/*"
+               value={query} onChange={(e) => setQuery(e.target.value)}
+               onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 120)} />
+        {listMode === "sequence" && focus.length > 0 && (
+          // Charles puts a Focused checkbox in Sequence view; it hides unfocused
+          // hosts without touching Focus itself.
+          <button className={"chip" + (focusFilterOn ? " primary" : "")} aria-pressed={focusFilterOn}
+                  onClick={() => setFocusFilter(!focusFilterOn)}>Focused</button>
+        )}
+        <button className="fbtn" aria-label="Saved filters" data-tip="Saved filters"
+                onClick={() => setShowSaved((v) => !v)}>★</button>
+        <button className="fbtn" aria-label="Filter syntax help" data-tip="Filter syntax help"
+                onClick={() => setShowHelp((v) => !v)}>?</button>
+      </div>
       {suggestions.length > 0 && (
         <div className="ac-dropdown">
           {suggestions.map((s) => (
@@ -69,8 +68,6 @@ export function FilterBar() {
           ))}
         </div>
       )}
-      <button className="chip" onClick={() => setQuery("status:>=400")}>Errors only</button>
-      <button className="chip" onClick={() => setShowSaved((v) => !v)}>Saved</button>
       {showSaved && (
         <div className="saved-menu">
           {listSaved().map((f) => (
@@ -81,14 +78,7 @@ export function FilterBar() {
           <button className="saved-add" onClick={() => { const n = window.prompt("Filter name"); if (n) saveFilter(n, query); }}>＋ Save current</button>
         </div>
       )}
-      <button className="chip" aria-label="Filter syntax help" onClick={() => setShowHelp((v) => !v)}>?</button>
       {showHelp && <DslHelp />}
-      {listMode === "sequence" && focus.length > 0 && (
-        // Charles puts a Focused checkbox in Sequence view; it hides unfocused
-        // hosts without touching Focus itself.
-        <button className={"chip" + (focusFilterOn ? " primary" : "")} aria-pressed={focusFilterOn}
-                onClick={() => setFocusFilter(!focusFilterOn)}>Focused</button>
-      )}
     </div>
   );
 }

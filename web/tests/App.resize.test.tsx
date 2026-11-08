@@ -38,6 +38,6 @@ describe("detail pane re-clamps on window resize", () => {
     setInnerWidth(1000);
     fireEvent(window, new Event("resize"));
 
-    expect(useStore.getState().detailWidth).toBeLessThanOrEqual(600);
+    expect(useStore.getState().detailWidth).toBeLessThanOrEqual(800);
   });
 });
