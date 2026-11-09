@@ -12,7 +12,8 @@ Mitmboard runs as a standard mitmproxy addon loaded by `mitmdump`. mitmproxy ter
 
 - On `request` a pending row is streamed (`flow.new`); on `response` / `error` the addon converts the mitmproxy `HTTPFlow` into a plain `Flow` record (`transform.py`) and stores it in an in‑memory ring buffer (`store.py`, capped at 5000, oldest evicted), broadcasting `flow.complete` / `flow.error`.
 - Original mitmproxy flow objects are retained (bounded) so **Replay** and **Edit‑and‑Resend** can re‑issue them; the edit logic lives in `apply_request_edits` / `apply_response_edits`.
-- When mitmproxy finishes starting (`running` hook), the addon boots the FastAPI app on a uvicorn server bound to `127.0.0.1`, and starts a 1 s breakpoint sweep task.
+- When mitmproxy finishes starting (`running` hook), the addon boots the FastAPI app on a uvicorn server bound to `127.0.0.1`, and starts a 1 s breakpoint sweep task. It keeps strong references to the server and both tasks (asyncio only holds weak references).
+- On shutdown, the addon's `done` hook — awaited by `master.run()`'s `finally`, before `asyncio.run()` closes the loop — sets `server.should_exit` and awaits the `serve()` task. This lets uvicorn run its own graceful shutdown: it injects `websocket.disconnect` (1012) into every `/ws` connection and closes the lifespan cleanly. Without it, `asyncio.run()` cancels those tasks from outside and uvicorn's wsproto protocol logs a `CancelledError` traceback per connection. `Config(timeout_graceful_shutdown=1.0)` and a 2 s budget in `done()` bound the wait.
 
 `cli.py` translates Mitmboard's mitmweb-compatible web flags (`--web-port`, `--web-host`, `--web-open-browser`) into `mitmdump` argv and always loads the addon. Proxy and traffic flags are mitmproxy's own and pass through untouched. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
 

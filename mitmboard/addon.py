@@ -74,6 +74,13 @@ class Mitmboard:
         self.breakpoints = BreakpointEngine(lambda: self.registry.breakpoints())
         self.maplocal = MapLocalEngine(lambda: self.registry.map_local())
         self._modified: set[str] = set()
+        # The web server is started in `running()` on mitmproxy's own event
+        # loop. asyncio keeps only weak references to tasks, so hold strong
+        # references here: `done()` needs both the Server handle (to request
+        # a graceful shutdown) and the tasks (to await them).
+        self._server = None
+        self._serve_task = None
+        self._sweep_task = None
 
     def load(self, loader: Loader) -> None:
         # Same names and defaults as mitmweb: `--set web_port=9091` therefore
@@ -101,9 +108,14 @@ class Mitmboard:
                        maplocal_dir=managed_dir(),
                        save_response_file=self.save_response_file,
                        web_port=port, proxy_port=proxy_port)
-        config = uvicorn.Config(app, host=host, port=port, log_level="warning")
-        asyncio.ensure_future(uvicorn.Server(config).serve())
-        asyncio.ensure_future(self._sweep_loop())
+        # A bounded graceful shutdown keeps a stuck connection from hanging
+        # `done()` forever; the hook itself also has a 2 s outer budget.
+        config = uvicorn.Config(app, host=host, port=port, log_level="warning",
+                                timeout_graceful_shutdown=1.0)
+        server = uvicorn.Server(config)
+        self._server = server
+        self._serve_task = asyncio.ensure_future(server.serve())
+        self._sweep_task = asyncio.ensure_future(self._sweep_loop())
         # The UI has no authentication. Say so out loud when it is reachable
         # from the network instead of assuming the user meant it.
         if host not in ("127.0.0.1", "localhost", "::1"):
@@ -117,9 +129,57 @@ class Mitmboard:
 
     def _publish(self, evt: dict) -> None:
         fut = asyncio.ensure_future(self.broadcaster.publish(evt))
-        fut.add_done_callback(
-            lambda f: f.exception() and _log.error("mitmboard publish failed: %r", f.exception())
-        )
+
+        def _on_done(f: asyncio.Future) -> None:
+            # `.exception()` raises CancelledError on a cancelled future. That
+            # is the normal fate of in-flight publishes during shutdown, so
+            # guard it rather than logging a bogus error from the callback.
+            if f.cancelled():
+                return
+            err = f.exception()
+            if err is not None:
+                _log.error("mitmboard publish failed: %r", err)
+
+        fut.add_done_callback(_on_done)
+
+    async def done(self) -> None:
+        """Stop the web server before mitmproxy tears the event loop down.
+
+        `mitmdump` runs everything under `asyncio.run()`. Without this hook,
+        `master.run()` returns and `asyncio.Runner.close()` immediately cancels
+        every task uvicorn left behind; wsproto logs each cancelled /ws task as
+        "Exception in ASGI application" and the lifespan task as a
+        CancelledError traceback. Letting `serve()` complete its own shutdown
+        injects websocket.disconnect(1012) into every /ws connection, closes
+        the lifespan cleanly, and leaves nothing for the runner to cancel.
+        """
+        if self._server is not None:
+            # handle_exit already sets this on SIGINT/SIGTERM; doing it here
+            # also covers a programmatic master.shutdown() with no signal.
+            self._server.should_exit = True
+        if self._sweep_task is not None:
+            self._sweep_task.cancel()
+        try:
+            if self._serve_task is not None:
+                try:
+                    # shield so a timeout does not cancel the task behind our
+                    # back; we cancel and await it explicitly below.
+                    await asyncio.wait_for(asyncio.shield(self._serve_task), timeout=2.0)
+                except asyncio.TimeoutError:
+                    self._serve_task.cancel()
+                except Exception:
+                    # uvicorn reports its own failures. A shutdown must not
+                    # turn into a traceback on the user's terminal.
+                    pass
+        finally:
+            # Drain both tasks; `asyncio.run()` must find nothing to cancel.
+            for task in (self._serve_task, self._sweep_task):
+                if task is None:
+                    continue
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
 
     def _record(self, flow, state: str | None = None):
         rec = flow_to_record(flow, self.registry)

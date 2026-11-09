@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -56,6 +57,14 @@ async def _run_ws_loop(sock: WebSocket, broadcaster: Any) -> None:
         while True:
             await sock.receive_text()
     except WebSocketDisconnect:
+        pass
+    except asyncio.CancelledError:
+        # asyncio.CancelledError derives from BaseException, so it slips past
+        # every `except Exception` in FastAPI/Starlette and reaches uvicorn's
+        # wsproto handler, which logs the whole traceback as "Exception in
+        # ASGI application". The addon's `done()` hook normally prevents any
+        # cancellation at all; this is the second line of defence for other
+        # cancellation paths (e.g. a forced shutdown).
         pass
     finally:
         broadcaster.unregister(sock)

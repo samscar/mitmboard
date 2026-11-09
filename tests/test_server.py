@@ -292,3 +292,78 @@ async def test_ws_loop_unregisters_on_non_disconnect_error():
     with pytest.raises(RuntimeError):
         await _run_ws_loop(sock, bc)
     assert bc.client_count() == 0
+
+async def test_ws_loop_swallows_cancellation():
+    # CancelledError is a BaseException, so it escapes FastAPI/Starlette's
+    # `except Exception` layers and reaches uvicorn's wsproto handler, which
+    # logs the whole traceback as "Exception in ASGI application". A cancelled
+    # /ws task must exit quietly and still unregister its socket.
+    from mitmboard.server import _run_ws_loop
+
+    class FakeSock:
+        async def receive_text(self):
+            raise asyncio.CancelledError()
+
+    bc = Broadcaster()
+    sock = FakeSock()
+    await bc.register(sock)
+    await _run_ws_loop(sock, bc)          # must not raise
+    assert bc.client_count() == 0
+
+async def test_done_stops_server_and_drains_background_tasks(tmp_path, monkeypatch):
+    # master.run()'s finally awaits addon hooks before asyncio.run() cancels
+    # whatever is left. `done()` must request shutdown, await serve(), and
+    # cancel + await the sweep task.
+    import mitmboard.addon as addon_mod
+    monkeypatch.setattr(addon_mod, "config_path", lambda: tmp_path / "config.json")
+
+    addon = addon_mod.Mitmboard()
+    served, swept = [], []
+
+    class FakeServer:
+        should_exit = False
+
+    async def serve():
+        await asyncio.sleep(0)
+        served.append(True)
+
+    async def sweep():
+        try:
+            await asyncio.sleep(100)
+        finally:
+            swept.append(True)
+
+    addon._server = FakeServer()
+    addon._serve_task = asyncio.ensure_future(serve())
+    addon._sweep_task = asyncio.ensure_future(sweep())
+    await asyncio.sleep(0)                    # let both coroutines start
+    await addon.done()
+    assert addon._server.should_exit is True
+    assert addon._serve_task.done() and served == [True]
+    assert addon._sweep_task.done() and addon._sweep_task.cancelled()
+    assert swept == [True]
+
+async def test_done_is_a_noop_before_running(tmp_path, monkeypatch):
+    # Startup can fail before the `running` hook ever booted uvicorn.
+    import mitmboard.addon as addon_mod
+    monkeypatch.setattr(addon_mod, "config_path", lambda: tmp_path / "config.json")
+    await addon_mod.Mitmboard().done()
+
+async def test_publish_done_callback_ignores_cancelled(tmp_path, monkeypatch):
+    # Future.exception() raises CancelledError on a cancelled future. In-flight
+    # publishes are cancelled on every shutdown, so the callback must skip them.
+    import mitmboard.addon as addon_mod
+    monkeypatch.setattr(addon_mod, "config_path", lambda: tmp_path / "config.json")
+    errors = []
+    monkeypatch.setattr(addon_mod._log, "error", lambda *a, **kw: errors.append(a))
+
+    addon = addon_mod.Mitmboard()
+
+    async def cancelled_publish(event):
+        raise asyncio.CancelledError()
+
+    addon.broadcaster.publish = cancelled_publish
+    addon._publish({"type": "flow.update"})
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert errors == []
