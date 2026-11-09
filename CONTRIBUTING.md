@@ -51,9 +51,18 @@ Include what you expected, what happened, and (for capture problems) the relevan
 3. Download the macOS DMG from the draft, install and launch it, capture one request, quit.
 4. Publish the draft.
 
-PyPI uses [trusted publishing](https://docs.pypi.org/trusted-publishers/): on PyPI, add a
-publisher for `samscar/mitmboard`, workflow `release.yml`, environment `pypi`. Until that
-exists the `pypi` job fails while the rest of the release still completes.
+PyPI uses [trusted publishing](https://docs.pypi.org/trusted-publishers/) — one-time setup,
+done in the browser (the account needs two-factor authentication and a verified email):
+
+1. On PyPI, add a **pending publisher** with project name `mitmboard`, owner `samscar`,
+   repository `mitmboard`, workflow `release.yml`, environment `pypi`. A pending publisher
+   creates the project on the first successful publish; no placeholder upload is required.
+2. In the GitHub repository, create an environment named `pypi`. Enabling **required
+   reviewers** there adds a manual approval gate before each publish.
+
+Until the publisher exists the `pypi` job fails while the rest of the release still completes.
+The job skips pre-release tags (those containing `-`) and uses `skip-existing: true`, so
+re-running a tag never overwrites an existing version.
 
 Builds are unsigned. Adding signing later means adding secrets and the Tauri
 `APPLE_*` / `TAURI_SIGNING_*` env vars to the `desktop` job — nothing else changes.

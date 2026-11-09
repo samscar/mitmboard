@@ -9,7 +9,7 @@ Self-hosted network inspector for mobile HTTPS — a free, open alternative to P
 | macOS (Apple Silicon) | `Mitmboard_{{VERSION}}_aarch64.dmg` | Unsigned: right-click **Mitmboard.app → Open** the first time, or run `xattr -dr com.apple.quarantine /Applications/Mitmboard.app` |
 | Windows 10/11 (x64) | `Mitmboard_{{VERSION}}_x64-setup.exe` | Unsigned: SmartScreen → **More info → Run anyway** |
 | Linux (x64) | `Mitmboard_{{VERSION}}_amd64.AppImage` / `.deb` | AppImage: `chmod +x` then run |
-| Any (web UI) | Run from source | See the [README](https://github.com/samscar/mitmboard#from-source); PyPI package coming soon |
+| Any (Python 3.12+) | `pipx install mitmboard` | See the [README](https://github.com/samscar/mitmboard#install) |
 
 Checksums: `SHA256SUMS.txt`.
 

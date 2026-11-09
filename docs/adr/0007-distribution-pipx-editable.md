@@ -12,7 +12,7 @@
 
 ## Decision
 
-- **日常使用用 pipx。** 每个应用一个独立 venv（`~/.local/pipx/venvs/mitmboard`），只在 `~/.local/bin` 放一个 shim。不写入系统 Python，不导出环境变量，卸载即净。
+- **日常使用用 pipx 从 PyPI 安装**（`pipx install mitmboard`，见 ADR 0013）。每个应用一个独立 venv（`~/.local/pipx/venvs/mitmboard`），只在 `~/.local/bin` 放一个 shim。不写入系统 Python，不导出环境变量，卸载即净。
 - **开发用 `pipx install --editable .`。** shim 指向本仓库：改 Python 代码下次启动即生效；改前端需先 `npm run build`，editable 布局会直接读 `web/dist`。
 - **非 editable 安装前必须暂存界面**：`scripts/stage_web_assets.sh` 把 `web/dist` 复制到 `mitmboard/web_dist`，该目录加入 `.gitignore`。脚本先删后拷，避免旧产物混进新 wheel。
 - 保留 `.venv/bin/mitmboard` 作为最轻量路径（只在本仓库用，不改全局）。
@@ -29,3 +29,4 @@
 - editable 安装不会自动补新依赖：改 `pyproject.toml` 依赖后需 `pipx install --force --editable .`。
 - pipx 安装需要网络拉依赖；离线机器仍走 venv 路径。
 - `mitmboard --version` 同时打印 Mitmboard 与 mitmproxy 版本，便于判断命令指向的是哪一份安装。
+- **补充（ADR 0013）**：项目发布到 PyPI 后，对外使用方的日常安装命令是 `pipx install mitmboard`；本 ADR 里的 `pipx install .` 与 `pipx install --editable .` 保留为「从本仓库构建与开发」路径，不再是分发方式。

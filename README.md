@@ -14,8 +14,28 @@
 
 ## Install
 
-> **This is a private fork.** Prebuilt downloads on the upstream project are still
-> Proxino-branded and do not include this fork's changes. Install from source below.
+Install from PyPI with [pipx](https://pipx.pypa.io/) — it gives Mitmboard its own virtual
+environment and puts only the `mitmboard` command on your `PATH`:
+
+```bash
+pipx install mitmboard
+mitmboard                     # proxy :8080, web UI :8081
+```
+
+Or use pip inside a virtual environment:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install mitmboard
+.venv/bin/mitmboard
+```
+
+Upgrade with `pipx upgrade mitmboard` (or `.venv/bin/pip install -U mitmboard`).
+Requires **Python 3.12+**; `mitmproxy 12.3.1` is pinned exactly: the addon reads several
+mitmproxy internals (`flow.metadata`, `tls_clienthello`'s `data.context`, `is_replay`), so a
+patch-level API change can silently break the UI.
+
+`mitmboard -p 9090 --web-port 9091` changes the ports; any other flag is passed to `mitmdump`.
+The flags are mitmweb's — see [docs/cli-parity.md](docs/cli-parity.md).
 
 ### From source
 
@@ -26,13 +46,10 @@ cd web && npm install && npm run build && cd ..
 .venv/bin/mitmboard
 ```
 
-`mitmboard -p 9090 --web-port 9091` changes the ports; any other flag is passed to `mitmdump`. The flags are mitmweb's — see [docs/cli-parity.md](docs/cli-parity.md).
+### Install a local build as a command
 
-Requires Python 3.11+ and **mitmproxy 12.3.1**, pinned exactly: the addon reads several
-mitmproxy internals (`flow.metadata`, `tls_clienthello`'s `data.context`, `is_replay`), so a
-patch-level API change can silently break the UI.
-
-### Install it as a command
+The commands below build from this checkout, not from PyPI; use `pipx install mitmboard` above
+for a normal install.
 
 `pip install -e .` writes an executable to `.venv/bin/mitmboard`. That path is only on your `PATH` **inside that environment**, so `mitmboard` is "command not found" in a fresh shell. Two ways to fix it:
 
@@ -182,8 +199,7 @@ docs/           documentation
 
 - Client-side scripting hooks
 - Find-in-body search, copy-all-as-cURL
-- PyPI package (`pipx install mitmboard`)
-- Homebrew tap
+- ~~Homebrew tap~~ — 不采用；分发只走 PyPI，见 [ADR 0013](docs/adr/0013-pypi-only-distribution.md)
 
 Ideas and PRs welcome — see [CONTRIBUTING.md](https://github.com/samscar/mitmboard/blob/main/CONTRIBUTING.md).
 
