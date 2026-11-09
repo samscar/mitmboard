@@ -33,6 +33,10 @@ class MapLocalBody(BaseModel):
     enabled: bool = True
     rules: list[dict] = []
 
+class SSLProxyingBody(BaseModel):
+    enabled: bool = True
+    exclude: list[str] = []
+
 class ResumeBody(BaseModel):
     method: str | None = None
     url: str | None = None
@@ -59,7 +63,8 @@ async def _run_ws_loop(sock: WebSocket, broadcaster: Any) -> None:
 
 def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | None = None,
              edited_replayer: Callable[[str, dict], bool] | None = None,
-             passthrough=None,
+             ssl_proxying_apply: Callable[[dict], dict] | None = None,
+             ssl_proxying_state: Callable[[], dict] | None = None,
              wsstore: "WsStore | None" = None,
              on_clear: Callable[[], None] | None = None,
              breakpoints: "BreakpointEngine | None" = None,
@@ -157,27 +162,40 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
             raise HTTPException(status_code=404, detail="not found")
         return {"ok": True}
 
-    @app.get("/api/passthrough")
-    def list_passthrough() -> list[dict]:
-        return passthrough.snapshot() if passthrough is not None else []
+    @app.get("/api/ssl-proxying")
+    def get_ssl_proxying() -> dict:
+        # No saved state yet -> the feature's neutral default: enabled with
+        # an empty list, which intercepts everything (no exclusions). The
+        # baseline (config.yaml / --ignore-hosts patterns captured at
+        # startup) comes from the addon when it is running; the UI renders
+        # it read-only.
+        data = registry.ssl_proxying() or {"enabled": True, "exclude": []}
+        base = []
+        if ssl_proxying_state is not None:
+            try:
+                base = ssl_proxying_state().get("base", [])
+            except Exception:
+                base = []
+        return {**data, "base": base}
 
-    @app.delete("/api/passthrough/{host}")
-    async def remove_passthrough(host: str) -> dict:
-        if passthrough is None:
-            raise HTTPException(status_code=404, detail="not found")
-        current = {e["host"]: e for e in passthrough.snapshot()}
-        entry = current.get(host)
-        if entry is None:
-            raise HTTPException(status_code=404, detail="not found")
-        if entry["source"] == "config":
-            raise HTTPException(
-                status_code=409,
-                detail="host matches a configured passthrough pattern; edit ~/.mitmboard/config.json",
-            )
-        if not passthrough.remove(host):
-            raise HTTPException(status_code=404, detail="not found")
-        await broadcaster.publish({"type": "passthrough.update", "hosts": passthrough.snapshot()})
-        return {"removed": True}
+    @app.put("/api/ssl-proxying")
+    async def put_ssl_proxying(body: SSLProxyingBody) -> dict:
+        try:
+            registry.set_ssl_proxying(body.model_dump())
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        # The addon merges the saved UI list with the captured baseline and
+        # pushes it onto mitmproxy's ignore_hosts option; NextLayer
+        # recompiles, so new connections honor it immediately.
+        if ssl_proxying_apply is not None:
+            try:
+                data = ssl_proxying_apply(registry.ssl_proxying())
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"proxy unavailable: {e}")
+        else:
+            data = {**registry.ssl_proxying(), "base": []}
+        await broadcaster.publish({"type": "sslproxying.update", **data})
+        return data
 
     @app.get("/api/breakpoints")
     def get_breakpoints() -> dict:

@@ -4,20 +4,17 @@ import { TopBar } from "./components/TopBar";
 import { ListPanel } from "./components/ListPanel";
 import { DetailPane } from "./components/DetailPane";
 import { StatusBar } from "./components/StatusBar";
-import { EmptyState } from "./components/EmptyState";
 import { Dialogs } from "./components/Dialogs";
-import { useUi } from "./uiStore";
 import { connectWS } from "./ws";
-import { fetchFlows, fetchPassthrough, fetchWsMessages, fetchBreakpoints, fetchPaused, fetchMaplocal } from "./api";
+import { fetchFlows, fetchSslProxying, fetchWsMessages, fetchBreakpoints, fetchPaused, fetchMaplocal } from "./api";
 import { useStore } from "./store";
 import { clearSelection } from "./selection";
 import { isOverlayOpen, isTypingTarget } from "./keyboard";
 import "./theme.css";
 
 export function App() {
-  const openDialog = useUi((s) => s.openDialog);
   const upsert = useStore((s) => s.upsertFlow);
-  const setPassthrough = useStore((s) => s.setPassthrough);
+  const setSslproxying = useStore((s) => s.setSslproxying);
   const appendWsMessage = useStore((s) => s.appendWsMessage);
   const mergeWsMessages = useStore((s) => s.mergeWsMessages);
   const setBreakpoints = useStore((s) => s.setBreakpoints);
@@ -25,7 +22,6 @@ export function App() {
   const setPaused = useStore((s) => s.setPaused);
   const addPaused = useStore((s) => s.addPaused);
   const removePaused = useStore((s) => s.removePaused);
-  const isEmpty = useStore((s) => s.flows.size === 0);
   const detailWidth = useStore((s) => s.detailWidth);
   const setDetailWidth = useStore((s) => s.setDetailWidth);
   const dragState = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -86,7 +82,7 @@ export function App() {
   useEffect(() => {
     const resync = () => {
       fetchFlows().then((fs) => fs.forEach(upsert)).catch(() => {});
-      fetchPassthrough().then(setPassthrough).catch(() => {});
+      fetchSslProxying().then(setSslproxying).catch(() => {});
       fetchBreakpoints().then(setBreakpoints).catch(() => {});
       fetchMaplocal().then(setMaplocal).catch(() => {});
       fetchPaused().then(setPaused).catch(() => {});
@@ -103,36 +99,32 @@ export function App() {
         if (e.type === "flow.update") upsert(e.flow);
         else if (e.type === "breakpoints.update") setBreakpoints({ enabled: e.enabled, rules: e.rules });
         else if (e.type === "maplocal.update") setMaplocal({ enabled: e.enabled, rules: e.rules });
+        else if (e.type === "sslproxying.update") setSslproxying({ enabled: e.enabled, exclude: e.exclude, base: e.base });
         else if (e.type === "breakpoint.paused") addPaused(e.entry, e.flow);
         else if (e.type === "breakpoint.resumed" || e.type === "breakpoint.dropped" || e.type === "breakpoint.timeout") removePaused(e.flow_id);
         else if ("flow" in e) upsert(e.flow);
         else if (e.type === "ws.message") {
           if (e.flow_id === useStore.getState().selectedId) appendWsMessage(e.flow_id, e.message);
         }
-        else if (e.type === "passthrough.update") setPassthrough(e.hosts);
       },
       resync,
     );
-  }, [upsert, setPassthrough, appendWsMessage, mergeWsMessages, setBreakpoints, setPaused, addPaused, removePaused, setMaplocal]);
+  }, [upsert, setSslproxying, appendWsMessage, mergeWsMessages, setBreakpoints, setPaused, addPaused, removePaused, setMaplocal]);
   return (
     <div className="app">
       <MenuBar />
       <TopBar />
       <div className="body">
-        {isEmpty ? (
-          <EmptyState onConnect={() => openDialog("connect")} />
-        ) : (
-          <>
-            <ListPanel />
-            <div
-              className="splitter"
-              role="separator"
-              aria-orientation="vertical"
-              onMouseDown={onSplitterMouseDown}
-            />
-            <DetailPane width={detailWidth} />
-          </>
-        )}
+        {/* No onboarding page: with zero flows the list panel simply shows an
+            empty list, the way Charles does. */}
+        <ListPanel />
+        <div
+          className="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={onSplitterMouseDown}
+        />
+        <DetailPane width={detailWidth} />
       </div>
       <StatusBar />
       <Dialogs />

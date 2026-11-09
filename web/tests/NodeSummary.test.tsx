@@ -42,6 +42,17 @@ const flows = () => {
   return [a, b, c];
 };
 
+/** The tree starts fully collapsed (Charles); expand every folder so the
+    directories and leaves render. */
+const expandAllFolders = () => {
+  for (let round = 0; round < 50; round++) {
+    const caret = [...document.querySelectorAll(".stree-folder .stree-caret")]
+      .find((c) => c.textContent === "▸") as HTMLElement | undefined;
+    if (!caret) return;
+    fireEvent.click(caret);
+  }
+};
+
 describe("node summary", () => {
   beforeEach(() => {
     useStore.getState().clear();
@@ -78,6 +89,7 @@ describe("node summary", () => {
     render(<App />);
     fireEvent.click(document.querySelector(".stree-host") as HTMLElement);
     await screen.findByRole("region", { name: "Node summary" });
+    expandAllFolders();
 
     fireEvent.click(document.querySelector(".stree-leaf") as HTMLElement);
     await waitFor(() => expect(screen.getByText(/https:\/\/api\.soum\.sa\/v2\/[ab]/)).toBeInTheDocument());
@@ -96,6 +108,7 @@ describe("node summary for a directory", () => {
 
   it("counts only the requests under that path prefix", async () => {
     render(<App />);
+    expandAllFolders();
     const dir = document.querySelector(".stree-folder:not(.stree-host)") as HTMLElement;
     fireEvent.click(dir);
 

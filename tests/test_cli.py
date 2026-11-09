@@ -62,7 +62,7 @@ def test_listen_port_is_not_duplicated():
         assert "-p" not in out and "8080" not in out
 
 
-def test_passthrough_keeps_user_mitmdump_args():
+def test_keeps_user_mitmdump_args():
     out = build_argv(["--set", "termlog_verbosity=warn", "-q"], {})
     assert out[:2] == ["--set", "termlog_verbosity=warn"]
     assert "-q" in out and "-s" in out and "-p" in out

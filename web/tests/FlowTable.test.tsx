@@ -21,8 +21,9 @@ describe("FlowTable", () => {
     expect(screen.getByText("api.soum.sa")).toBeInTheDocument();
   });
   it("shows empty state when no flows", () => {
+    // The onboarding page is gone: an empty session shows a plain empty list.
     render(<FlowTable />);
-    expect(screen.getByText(/waiting for traffic/i)).toBeInTheDocument();
+    expect(screen.getByText("No requests")).toBeInTheDocument();
   });
   it("renders column headers and TYPE + SIZE cells", () => {
     useStore.getState().upsertFlow(mk("7", {

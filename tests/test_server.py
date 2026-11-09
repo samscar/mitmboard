@@ -142,54 +142,54 @@ def test_replay_edited_503_without_replayer(tmp_path):
     c, _, _ = client(tmp_path)
     assert c.post("/api/flows/a/replay-edited", json={}).status_code == 503
 
-def test_passthrough_empty_list_without_registry(tmp_path):
-    c, _, _ = client(tmp_path)   # make_app built without a passthrough registry
-    assert c.get("/api/passthrough").json() == []
+def test_ssl_proxying_default_without_saved_state(tmp_path):
+    c, _, _ = client(tmp_path)
+    assert c.get("/api/ssl-proxying").json() == {"enabled": True, "exclude": [], "base": []}
 
-def test_passthrough_snapshot_endpoint(tmp_path):
-    from mitmboard.passthrough import PassthroughRegistry
-    pth = PassthroughRegistry(threshold=1)
-    pth.record_failure("pinned.example.com", "1.2.3.4")
-    c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
-                            passthrough=pth))
-    hosts = c.get("/api/passthrough").json()
-    assert hosts[0]["host"] == "pinned.example.com"
+def test_ssl_proxying_get_reports_captured_baseline(tmp_path):
+    reg = ClientRegistry(tmp_path / "c.json")
+    c = TestClient(make_app(FlowStore(), reg, Broadcaster(),
+                            ssl_proxying_state=lambda: {
+                                "enabled": True, "exclude": [], "base": ["^config-yaml:443$"]}))
+    assert c.get("/api/ssl-proxying").json() == {
+        "enabled": True, "exclude": [], "base": ["^config-yaml:443$"]}
 
-def test_passthrough_delete_removes_and_publishes(tmp_path):
-    from mitmboard.passthrough import PassthroughRegistry
-    pth = PassthroughRegistry(threshold=1)
-    pth.record_failure("pinned.example.com", "1.2.3.4")
+def test_ssl_proxying_put_roundtrip_and_publish(tmp_path):
+    reg = ClientRegistry(tmp_path / "c.json")
     published = []
     bc = Broadcaster()
     async def fake_publish(evt): published.append(evt)
     bc.publish = fake_publish
-    c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), bc, passthrough=pth))
-    r = c.delete("/api/passthrough/pinned.example.com")
-    assert r.json() == {"removed": True}
-    assert c.get("/api/passthrough").json() == []
-    assert published[-1]["type"] == "passthrough.update"
+    applied = {}
+    def fake_apply(data):
+        applied.clear()
+        applied.update({**data, "base": ["^config-yaml:443$"]})
+        return applied
+    c = TestClient(make_app(FlowStore(), reg, bc,
+                            ssl_proxying_apply=fake_apply,
+                            ssl_proxying_state=lambda: applied))
+    r = c.put("/api/ssl-proxying", json={"enabled": False, "exclude": ["*.example.com"]})
+    assert r.status_code == 200
+    assert r.json() == {"enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
+    assert reg.ssl_proxying() == {"enabled": False, "exclude": ["*.example.com"]}
+    assert applied == {"enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
+    assert published[-1]["type"] == "sslproxying.update"
+    assert published[-1]["base"] == ["^config-yaml:443$"]
+    assert c.get("/api/ssl-proxying").json() == {
+        "enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
 
-def test_passthrough_delete_unknown_host_404(tmp_path):
-    from mitmboard.passthrough import PassthroughRegistry
-    pth = PassthroughRegistry()
-    c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
-                            passthrough=pth))
-    assert c.delete("/api/passthrough/nope.example.com").status_code == 404
+def test_ssl_proxying_put_invalid_pattern_422(tmp_path):
+    c, _, _ = client(tmp_path)
+    assert c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["   "]}).status_code == 422
+    assert c.put("/api/ssl-proxying", json={"enabled": True, "exclude": [3]}).status_code == 422
 
-def test_passthrough_delete_config_host_409(tmp_path):
-    # Config-sourced hosts re-match their pattern on the very next hello, so
-    # "retry decrypt" can't apply to them — the API must say so explicitly
-    # instead of pretending the removal worked (or 404-ing as if unknown).
-    from mitmboard.passthrough import PassthroughRegistry
-    pth = PassthroughRegistry(patterns=["*.pinned.com"])
-    pth.should_ignore("host.pinned.com")
+def test_ssl_proxying_put_apply_failure_503(tmp_path):
+    def boom(_data):
+        raise RuntimeError("no proxy master")
     c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
-                            passthrough=pth))
-    r = c.delete("/api/passthrough/host.pinned.com")
-    assert r.status_code == 409
-    assert "config.json" in r.json()["detail"]
-    # untouched — still listed as a config passthrough host
-    assert c.get("/api/passthrough").json()[0]["host"] == "host.pinned.com"
+                            ssl_proxying_apply=boom))
+    r = c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["x.example.com"]})
+    assert r.status_code == 503
 
 def test_breakpoints_crud_and_validation(tmp_path):
     c, _, reg = client(tmp_path)

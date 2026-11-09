@@ -89,7 +89,7 @@ export function FlowTable() {
         </>
       )}
       {rows.length === 0 && pausedFlows.length === 0 ? (
-        <div className="empty">{total > 0 ? "No requests match the filter" : "Waiting for traffic…"}</div>
+        <div className="empty">{total > 0 ? "No requests match the filter" : "No requests"}</div>
       ) : rows.map((f) => (
         <div key={f.id} role="row" className={"flowrow" + (f.id === selectedId ? " selected" : "")}
              onClick={() => onClick(f)}

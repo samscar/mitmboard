@@ -13,36 +13,6 @@ vi.mock("../src/api", () => ({
   fetchConnectInfo: vi.fn(() => Promise.resolve({ proxy_hint: "127.0.0.1:8080" })),
 }));
 
-describe("TopBar encrypted-hosts pill", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    useStore.getState().clear();
-    useStore.getState().setPassthrough([]);
-  });
-
-  it("hides the pill when there are no passed-through hosts", () => {
-    render(<TopBar />);
-    expect(screen.queryByText(/encrypted/)).not.toBeInTheDocument();
-  });
-
-  it("counts only active hosts, excluding watching ones", () => {
-    useStore.getState().setPassthrough([
-      { host: "pinned.example.com", source: "auto", active: true, failures: 2, clients: ["1.1.1.1"], first_seen: 1, last_seen: 2 },
-      { host: "watching.example.com", source: "auto", active: false, failures: 1, clients: ["2.2.2.2"], first_seen: 1, last_seen: 2 },
-    ]);
-    render(<TopBar />);
-    expect(screen.getByText("1 encrypted")).toBeInTheDocument();
-  });
-
-  it("hides the pill entirely when every host is still only watching", () => {
-    useStore.getState().setPassthrough([
-      { host: "watching.example.com", source: "auto", active: false, failures: 1, clients: ["2.2.2.2"], first_seen: 1, last_seen: 2 },
-    ]);
-    render(<TopBar />);
-    expect(screen.queryByText(/encrypted/)).not.toBeInTheDocument();
-  });
-});
-
 describe("TopBar window drag region (Tauri desktop shell)", () => {
   beforeEach(() => {
     vi.clearAllMocks();

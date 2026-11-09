@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { FlowMeta, FlowDetail, PassthroughHost, WsMessage, Breakpoints, PausedEntry, MapLocal } from "./types";
+import type { FlowMeta, FlowDetail, WsMessage, Breakpoints, PausedEntry, MapLocal, SSLProxying } from "./types";
 import { parseQuery } from "./filters/dsl";
 
 export type ListMode = "sequence" | "structure";
@@ -55,7 +55,7 @@ interface State {
   focus: string[];
   focusFilterOn: boolean;
   listMode: ListMode;
-  passthrough: PassthroughHost[];
+  sslproxying: SSLProxying;
   detailWidth: number;
   wsMessages: Record<string, WsMessage[]>;
   breakpoints: Breakpoints;
@@ -70,7 +70,7 @@ interface State {
   setFocus: (hosts: string[]) => void;
   toggleFocus: (host: string) => void;
   setFocusFilter: (on: boolean) => void;
-  setPassthrough: (hosts: PassthroughHost[]) => void;
+  setSslproxying: (s: SSLProxying) => void;
   setDetailWidth: (n: number) => void;
   appendWsMessage: (flowId: string, m: WsMessage) => void;
   setWsMessages: (flowId: string, msgs: WsMessage[]) => void;
@@ -88,7 +88,7 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   flows: new Map(), order: [], selectedId: null, detail: null,
-  query: "", listMode: loadListMode(), passthrough: [],
+  query: "", listMode: loadListMode(), sslproxying: { enabled: true, exclude: [], base: [] },
   selectedNode: null, focus: [], focusFilterOn: false,
   detailWidth: loadDetailWidth(),
   wsMessages: {},
@@ -99,7 +99,7 @@ export const useStore = create<State>((set, get) => ({
     try { localStorage.setItem(LIST_MODE_KEY, listMode); } catch { /* ignore */ }
     set({ listMode });
   },
-  setPassthrough: (passthrough) => set({ passthrough }),
+  setSslproxying: (sslproxying) => set({ sslproxying }),
   setDetailWidth: (n) => {
     const detailWidth = clampDetailWidth(n);
     try { localStorage.setItem(DETAIL_WIDTH_KEY, String(detailWidth)); } catch { /* ignore */ }
@@ -145,7 +145,10 @@ export const useStore = create<State>((set, get) => ({
     delete paused[flowId];
     return { paused };
   }),
-  clear: () => set({ flows: new Map(), order: [], selectedId: null, detail: null, query: "", wsMessages: {},
+  // Clearing the session wipes traffic and selection, but the filter query
+  // survives: Charles keeps the filter text across session clears, and losing
+  // it makes the post-clear tree look broken. Only the user edits the filter.
+  clear: () => set({ flows: new Map(), order: [], selectedId: null, detail: null, wsMessages: {},
                      selectedNode: null, focus: [], focusFilterOn: false }),
   visibleFlows: () => {
     const s = get();

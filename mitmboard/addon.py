@@ -13,7 +13,7 @@ from mitmboard.store import FlowStore
 from mitmboard.clients import ClientRegistry
 from mitmboard.broadcaster import Broadcaster
 from mitmboard.transform import flow_to_record
-from mitmboard.passthrough import PassthroughRegistry
+from mitmboard.sslproxy import SSLProxy
 from mitmboard.wsstore import WsStore
 from mitmboard.breakpoints import BreakpointEngine
 from mitmboard.maplocal import MapLocalEngine, MapLocalFileError
@@ -59,7 +59,8 @@ class Mitmboard:
         self.store = FlowStore()
         self.registry = ClientRegistry(config_path())
         self.broadcaster = Broadcaster()
-        self.passthrough = PassthroughRegistry(patterns=self.registry.passthrough_patterns())
+        self.sslproxy = SSLProxy()
+        self._sslproxy_started = False
         self._mflows: OrderedDict[str, HTTPFlow] = OrderedDict()
         self._mflow_cap = 5000
         self.wsstore = WsStore()
@@ -90,7 +91,8 @@ class Mitmboard:
         proxy_port = ctx.options.listen_port or 8080
         app = make_app(self.store, self.registry, self.broadcaster,
                        replayer=self.replay, edited_replayer=self.replay_edited,
-                       passthrough=self.passthrough,
+                       ssl_proxying_apply=self.apply_ssl_proxying,
+                       ssl_proxying_state=self.sslproxy.state,
                        wsstore=self.wsstore,
                        on_clear=self.clear,
                        breakpoints=self.breakpoints,
@@ -207,39 +209,31 @@ class Mitmboard:
                            extension_for_content_type(content_type))
         return {"path": str(path), "size": len(content)}
 
-    def tls_clienthello(self, data) -> None:
-        # A hook exception here kills the connection outright (mitmproxy
-        # treats it as fatal), so any malformed/partial `data.context` must
-        # be swallowed rather than raised.
-        try:
-            client = getattr(data.context, "client", None)
-            sni = getattr(client, "sni", None) if client is not None else None
-            peer = getattr(client, "peername", None) if client is not None else None
-            client_ip = peer[0] if peer else None
-            if self.passthrough.should_ignore(sni, client_ip=client_ip):
-                data.ignore_connection = True
-        except Exception:
-            _log.exception("mitmboard passthrough hook failed")
+    def configure(self, updated) -> None:
+        # Runs after mitmproxy has merged config.yaml and CLI flags into the
+        # options (tools/main.py loads config.yaml before the master starts),
+        # so the option value here is the untouched baseline. Snapshot it
+        # exactly once: a later configure() would otherwise capture the
+        # already-merged value (baseline + UI entries) as the baseline. Then
+        # re-apply the persisted dialog state, so its UI entries survive a
+        # restart too.
+        if not self._sslproxy_started:
+            self._sslproxy_started = True
+            self.sslproxy.capture_base(ctx.options)
+            saved = self.registry.ssl_proxying()
+            if saved is not None:
+                try:
+                    self.sslproxy.apply(saved, ctx.options)
+                except Exception:
+                    _log.exception("mitmboard: applying saved SSL Proxying settings failed")
 
-    def tls_failed_client(self, data) -> None:
-        try:
-            client = getattr(data.context, "client", None)
-            host = getattr(client, "sni", None) if client is not None else None
-            if host is None:
-                return
-            peer = getattr(client, "peername", None) if client is not None else None
-            client_ip = peer[0] if peer else "unknown"
-            flipped = self.passthrough.record_failure(host, client_ip)
-            hosts = self.passthrough.snapshot()
-            if flipped:
-                failures = next((h["failures"] for h in hosts if h["host"] == host), 0)
-                _log.info(
-                    "mitmboard: passing through %s (client %s refused the proxy certificate %d times)",
-                    host, client_ip, failures,
-                )
-            self._publish({"type": "passthrough.update", "hosts": hosts})
-        except Exception:
-            _log.exception("mitmboard passthrough hook failed")
+    def apply_ssl_proxying(self, data: dict) -> dict:
+        """Push a freshly saved dialog state onto the live proxy.
+
+        mitmproxy's NextLayer recompiles its ignore_hosts matchers when the
+        option changes, so new connections honor the list immediately.
+        Returns the full live state (baseline + UI list) for the API."""
+        return self.sslproxy.apply(data, ctx.options)
 
     def request(self, flow: HTTPFlow) -> None:
         self._apply_map_local(flow)

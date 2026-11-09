@@ -13,7 +13,7 @@
 | `--set`、`-q`、`-v` | 透传，可用 | 各设置面板 |
 | `-s/--scripts` | 透传；Mitmboard 自己的 addon 始终追加，用户脚本保留 | Tools → Map Local / Rewrite / Breakpoints（脚本是 mitmproxy 独有能力） |
 | `-r/--rfile`、`-w/--save-stream-file` | 透传，可用 | File → Save / Export Session |
-| `-f`（filter）、`--ignore-hosts`、`--allow-hosts` | 透传，可用 | Proxy Settings → Options / SSL Proxying 的 include 列表 |
+| `-f`（filter）、`--ignore-hosts`、`--allow-hosts` | 透传，可用；config.yaml / CLI 的 ignore_hosts 作为基线捕获，UI 的 exclude 名单与其合并生效（UI 删除不影响基线） | Proxy → SSL Proxying Settings → Exclude 列表（include 列表 UI 未实现，置灰占位） |
 | `--ssl-insecure`、`--upstream-cert`、`--no-server` | 透传，可用 | Proxy Settings → SSL |
 | `--anticache`、`--anticomp`、`--showhost`、`--stickycookie`、`--stickyauth` | 透传，可用 | Tools → Rewrite / No Caching |
 | `--options`、`--commands` | 透传，可用 | 无对应 |

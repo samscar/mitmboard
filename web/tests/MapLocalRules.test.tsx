@@ -174,6 +174,8 @@ describe("structure tree context menus", () => {
     stubApi([mk("a")]);
     useStore.getState().upsertFlow(mk("a"));
     render(<App />);
+    // The tree starts collapsed (Charles); the v2 folder exists once expanded.
+    fireEvent.click(document.querySelector(".stree-host .stree-caret") as HTMLElement);
 
     const dir = document.querySelector(".stree-folder:not(.stree-host)") as HTMLElement;
     fireEvent.contextMenu(dir, { clientX: 20, clientY: 20 });
@@ -279,6 +281,8 @@ describe("context menu scope after the layout review", () => {
     stubApi([mk("a")]);
     useStore.getState().upsertFlow(mk("a"));
     render(<App />);
+    // The tree starts collapsed (Charles); the v2 folder exists once expanded.
+    fireEvent.click(document.querySelector(".stree-host .stree-caret") as HTMLElement);
 
     const dir = document.querySelector(".stree-folder:not(.stree-host)") as HTMLElement;
     fireEvent.contextMenu(dir, { clientX: 10, clientY: 10 });

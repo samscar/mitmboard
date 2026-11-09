@@ -3,7 +3,6 @@ import { caInfo, fetchConnectInfo } from "../api";
 import { useStore } from "../store";
 import { useUi } from "../uiStore";
 import { clearSession, repeatSelected } from "../sessionActions";
-import { LockOpenIcon } from "./LockOpenIcon";
 
 /** The window toolbar, as Charles arranges it.
  *
@@ -64,7 +63,6 @@ export function TopBar() {
   const selectedId = useStore((s) => s.selectedId);
   const listMode = useStore((s) => s.listMode);
   const setListMode = useStore((s) => s.setListMode);
-  const passthroughActiveCount = useStore((s) => s.passthrough.filter((p) => p.active).length);
   const breakpoints = useStore((s) => s.breakpoints);
   const pausedCount = useStore((s) => Object.keys(s.paused).length);
   const openDialog = useUi((s) => s.openDialog);
@@ -109,12 +107,6 @@ export function TopBar() {
         <span className={"tb-dot " + (caOk ? "ok" : "off")} />
         {caOk == null ? "CA…" : caOk ? "CA trusted" : "CA not installed"}
       </span>
-      {passthroughActiveCount > 0 && (
-        <button className="tb-status tb-passthrough" onClick={() => openDialog("passthrough")}
-                title="Hosts forwarded encrypted — their apps refused the proxy certificate">
-          <LockOpenIcon size={13} />{passthroughActiveCount} encrypted
-        </button>
-      )}
     </div>
   );
 }

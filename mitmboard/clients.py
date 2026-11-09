@@ -29,7 +29,6 @@ class ClientRegistry:
         self._kinds: dict[str, str] = {}  # first identified device kind per ip
         data = self._read_config()
         self._labels: dict[str, str] = data.get("labels", {})
-        self._passthrough_patterns = data.get("passthrough_hosts", [])
 
     def _read_config(self) -> dict:
         """Load the config file as-is, tolerating a missing or corrupt file."""
@@ -78,7 +77,7 @@ class ClientRegistry:
     def set_label(self, ip: str, label: str) -> None:
         self._labels[ip] = label
         # Read-modify-write: reload whatever is on disk right now (it may
-        # have been edited by hand, e.g. passthrough_hosts) and only
+        # have been edited by hand, e.g. ssl_proxying) and only
         # overwrite the "labels" key, so every other top-level key survives.
         on_disk = self._read_config()
         on_disk["labels"] = self._labels
@@ -86,9 +85,6 @@ class ClientRegistry:
 
     def all_labels(self) -> dict[str, str]:
         return dict(self._labels)
-
-    def passthrough_patterns(self) -> list[str]:
-        return list(self._passthrough_patterns)
 
     def breakpoints(self) -> dict:
         data = self._read_config().get("breakpoints") or {}
@@ -125,4 +121,38 @@ class ClientRegistry:
                 raise ValueError("a rule needs a host or a path")
         cfg = self._read_config()
         cfg["map_local"] = {"enabled": bool(data.get("enabled", True)), "rules": rules}
+        self._write_config(cfg)
+
+    def ssl_proxying(self) -> dict | None:
+        """Saved SSL Proxying Settings, or None while the user never saved any.
+
+        The None case matters: without it, merely starting mitmboard with a
+        config file that predates this feature would wipe --ignore-hosts
+        values the CLI passed in. Only a saved dialog state (the key
+        exists) is authoritative over the command line."""
+        data = self._read_config().get("ssl_proxying")
+        if not isinstance(data, dict):
+            return None
+        raw = data.get("exclude", [])
+        if not isinstance(raw, list):
+            raw = []
+        return {"enabled": bool(data.get("enabled", True)),
+                "exclude": [p for p in raw if isinstance(p, str)]}
+
+    def set_ssl_proxying(self, data: dict) -> None:
+        enabled = bool(data.get("enabled", True))
+        raw = data.get("exclude", [])
+        if not isinstance(raw, list) or any(not isinstance(p, str) for p in raw):
+            raise ValueError("exclude must be a list of strings")
+        from mitmboard.sslproxy import wildcard_to_anchored_regex
+        patterns = []
+        for p in raw:
+            # Validation lives at the config boundary (same policy as
+            # breakpoints/map_local): the engine's own conversions of such
+            # entries are unaffected, but saving an empty pattern is a
+            # mistake worth rejecting.
+            wildcard_to_anchored_regex(p)
+            patterns.append(p.strip())
+        cfg = self._read_config()
+        cfg["ssl_proxying"] = {"enabled": enabled, "exclude": patterns}
         self._write_config(cfg)

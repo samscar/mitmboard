@@ -31,7 +31,7 @@ function stubApi(flows: FlowMeta[], slow: Record<string, (resolve: Resolver) => 
     if (url === "/api/flows") return ok(flows);
     if (url === "/api/maplocal" && method === "PUT") return ok(JSON.parse(String(init!.body)));
     if (url === "/api/maplocal") return ok({ enabled: true, rules: [] });
-    if (url === "/api/passthrough" || url === "/api/paused" || url === "/api/clients") return ok([]);
+    if (url === "/api/ssl-proxying" || url === "/api/paused" || url === "/api/clients") return ok({ enabled: true, exclude: [], base: [] });
     if (url === "/api/breakpoints") return ok({ enabled: false, rules: [] });
     const m = url.match(/^\/api\/flows\/([^/]+)$/);
     if (m) {
@@ -50,9 +50,22 @@ function stubApi(flows: FlowMeta[], slow: Record<string, (resolve: Resolver) => 
 const hostRow = () => document.querySelector(".stree-host") as HTMLElement;
 const folderCount = () => document.querySelectorAll(".stree-folder").length;
 
+/** The tree starts fully collapsed (Charles), and folders nest: a host expands
+    into its first-level folders, which start collapsed in turn. Tests that
+    need to see leaves expand one folder per round until none is collapsed. */
+const expandAllFolders = () => {
+  for (let round = 0; round < 50; round++) {
+    const caret = [...document.querySelectorAll(".stree-folder .stree-caret")]
+      .find((c) => c.textContent === "▸") as HTMLElement | undefined;
+    if (!caret) return;
+    fireEvent.click(caret);
+  }
+};
+
 describe("tree selection and keyboard", () => {
   beforeEach(() => {
     useStore.getState().clear();
+    useStore.getState().setQuery(""); // clear() keeps the query on purpose
     useStore.getState().setListMode("structure");
   });
 
@@ -65,7 +78,7 @@ describe("tree selection and keyboard", () => {
     fireEvent.click(hostRow());
 
     expect(hostRow()).toHaveClass("selected");
-    expect(folderCount()).toBe(before); // still expanded
+    expect(folderCount()).toBe(before); // still collapsed: selecting never expands
   });
 
   it("collapses only when the caret is clicked", () => {
@@ -73,9 +86,13 @@ describe("tree selection and keyboard", () => {
     useStore.getState().upsertFlow(mk("a"));
     render(<App />);
 
-    expect(screen.getByText("items")).toBeInTheDocument();
+    // Charles starts with every host collapsed; one caret click reveals the
+    // host's first-level children, a second click folds them away again.
+    expect(screen.queryByText("v2")).toBeNull();
     fireEvent.click(hostRow().querySelector(".stree-caret") as HTMLElement);
-    expect(screen.queryByText("items")).toBeNull();
+    expect(screen.getByText("v2")).toBeInTheDocument();
+    fireEvent.click(hostRow().querySelector(".stree-caret") as HTMLElement);
+    expect(screen.queryByText("v2")).toBeNull();
   });
 
   it("moves the selection with arrow keys and loads the last one", async () => {
@@ -83,33 +100,58 @@ describe("tree selection and keyboard", () => {
     useStore.getState().upsertFlow(mk("a"));
     useStore.getState().upsertFlow(mk("b", { path: "/v2/other" }));
     render(<App />);
+    expandAllFolders();
 
     // Arrows walk every visible row, folders included (Charles selects groups
-    // too): host → /v2 → leaf, in render order.
+    // too): host → /v2 → leaf, in render order. Leaves are arrival order
+    // (ADR-0010): a was captured first, so a comes before b.
     for (let i = 0; i < 3; i++) fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() => expect(useStore.getState().selectedId).toBe("b"));
+    await waitFor(() => expect(useStore.getState().selectedId).toBe("a"));
 
     fireEvent.keyDown(window, { key: "ArrowDown" });
-    await waitFor(() => expect(useStore.getState().selectedId).toBe("a"));
+    await waitFor(() => expect(useStore.getState().selectedId).toBe("b"));
+  });
+
+  it("appends later traffic for the same endpoint at the bottom, like Charles", async () => {
+    // Leaf rows carry `${method} ${path}` as title; two requests sharing the
+    // final path segment sit under the same node, so titles distinguish them.
+    // The stub must carry the same paths as the upserted flows: App refetches
+    // /api/flows on mount and overwrites same-id metas with the stub's values.
+    stubApi([mk("a"), mk("b", { path: "/v2/items?n=1" })]);
+    useStore.getState().upsertFlow(mk("a"));
+    useStore.getState().upsertFlow(mk("b", { path: "/v2/items?n=1" }));
+    render(<App />);
+    expandAllFolders();
+
+    const titles = () =>
+      [...document.querySelectorAll(".stree-leaf")].map((r) => r.getAttribute("title"));
+    expect(titles()).toEqual(["GET /v2/items", "GET /v2/items?n=1"]);
+
+    // Traffic that arrives after the initial render joins at the bottom.
+    useStore.getState().upsertFlow(mk("c", { path: "/v2/items?n=2" }));
+    await waitFor(() => expect(titles()).toHaveLength(3));
+    expect(titles()).toEqual(["GET /v2/items", "GET /v2/items?n=1", "GET /v2/items?n=2"]);
   });
 
   it("keeps the last selection when an earlier detail response lands late", async () => {
     let releaseSlow: Resolver | null = null;
-    // b is the first leaf the arrow keys reach, and its detail response is the
-    // one that lands after the user has already moved on to a.
+    // a is the first leaf the arrow keys reach (arrival order, ADR-0010), and
+    // its detail response is the one that lands after the user has already
+    // moved on to b.
     stubApi([mk("a"), mk("b", { path: "/v2/other" })], {
-      b: (resolve) => { releaseSlow = resolve; },
+      a: (resolve) => { releaseSlow = resolve; },
     });
     useStore.getState().upsertFlow(mk("a"));
     useStore.getState().upsertFlow(mk("b", { path: "/v2/other" }));
     render(<App />);
+    expandAllFolders();
 
-    for (let i = 0; i < 3; i++) fireEvent.keyDown(window, { key: "ArrowDown" }); // → b, hangs
-    fireEvent.keyDown(window, { key: "ArrowDown" }); // → a, resolves
-    await waitFor(() => expect(useStore.getState().selectedId).toBe("a"));
+    for (let i = 0; i < 3; i++) fireEvent.keyDown(window, { key: "ArrowDown" }); // → a, hangs
+    fireEvent.keyDown(window, { key: "ArrowDown" }); // → b, resolves
+    await waitFor(() => expect(useStore.getState().selectedId).toBe("b"));
 
-    await act(async () => { releaseSlow!(detail(mk("b", { path: "/v2/other" }))); });
-    expect(useStore.getState().selectedId).toBe("a");
+    await act(async () => { releaseSlow!(detail(mk("a"))); });
+    expect(useStore.getState().selectedId).toBe("b");
   });
 
   it("focuses the filter box on ⌘/Ctrl+F", () => {
@@ -125,6 +167,7 @@ describe("tree selection and keyboard", () => {
 describe("focus", () => {
   beforeEach(() => {
     useStore.getState().clear();
+    useStore.getState().setQuery(""); // clear() keeps the query on purpose
     useStore.getState().setListMode("structure");
   });
 
@@ -185,6 +228,7 @@ describe("focus", () => {
 describe("multiple focused hosts", () => {
   beforeEach(() => {
     useStore.getState().clear();
+    useStore.getState().setQuery(""); // clear() keeps the query on purpose
     useStore.getState().setListMode("structure");
   });
 
@@ -227,6 +271,7 @@ describe("multiple focused hosts", () => {
 describe("filter autocomplete for devices", () => {
   beforeEach(() => {
     useStore.getState().clear();
+    useStore.getState().setQuery(""); // clear() keeps the query on purpose
     useStore.getState().setListMode("sequence");
   });
 
@@ -247,6 +292,7 @@ describe("filter autocomplete for devices", () => {
 describe("Other Hosts container", () => {
   beforeEach(() => {
     useStore.getState().clear();
+    useStore.getState().setQuery(""); // clear() keeps the query on purpose
     useStore.getState().setListMode("structure");
   });
 
@@ -263,80 +309,6 @@ describe("Other Hosts container", () => {
 
     expect(useStore.getState().selectedNode).toBeNull();
     expect(screen.queryByRole("region", { name: "Node summary" })).toBeNull();
-  });
-});
-
-describe("encrypted placeholders (passed-through hosts)", () => {
-  beforeEach(() => {
-    useStore.getState().clear();
-    useStore.getState().setListMode("structure");
-    useStore.getState().setPassthrough([]);
-  });
-
-  const pinned = {
-    host: "pinned.example.com", source: "auto" as const, active: true, failures: 2,
-    clients: ["1.1.1.1"], first_seen: 1, last_seen: 2,
-  };
-
-  it("shows a host that is forwarded encrypted as an <encrypted> row", () => {
-    // A passed-through host carries no decodable flows, so without a
-    // placeholder it would be invisible -- Charles lists it as <encrypted>.
-    stubApi([mk("a", { host: "api.soum.sa" })]);
-    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
-    useStore.getState().setPassthrough([pinned]);
-    render(<App />);
-
-    expect(screen.getByText("<encrypted>")).toBeInTheDocument();
-    expect(document.querySelectorAll(".stree-encrypted")).toHaveLength(1);
-  });
-
-  it("does not duplicate the placeholder when the host also has captured flows", () => {
-    stubApi([mk("a", { host: "pinned.example.com" })]);
-    useStore.getState().upsertFlow(mk("a", { host: "pinned.example.com" }));
-    useStore.getState().setPassthrough([pinned]);
-    render(<App />);
-
-    const rows = document.querySelectorAll(".stree-encrypted");
-    expect(rows).toHaveLength(1);
-    // The real flow still renders beside it.
-    expect(screen.getByText("items")).toBeInTheDocument();
-  });
-
-  it("hides watching hosts that have not flipped yet", () => {
-    stubApi([mk("a", { host: "api.soum.sa" })]);
-    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
-    useStore.getState().setPassthrough([{ ...pinned, active: false }]);
-    render(<App />);
-
-    expect(screen.queryByText("<encrypted>")).toBeNull();
-  });
-
-  it("hides the placeholder host while a filter is active", () => {
-    // The placeholder is context, not a request: with a query applied the user
-    // asked for matching requests only, so a passthrough host with no matching
-    // flow must disappear rather than read as "the filter did nothing".
-    stubApi([mk("a", { host: "api.soum.sa" })]);
-    useStore.getState().upsertFlow(mk("a", { host: "api.soum.sa" }));
-    useStore.getState().setPassthrough([pinned]);
-    useStore.getState().setQuery("soum");
-    render(<App />);
-
-    expect(screen.queryByText("<encrypted>")).toBeNull();
-    expect(screen.queryByText("pinned.example.com")).toBeNull();
-    expect(screen.getByText("items")).toBeInTheDocument(); // real matching flow survives
-  });
-
-  it("drops the <encrypted> row beside matching flows while filtering", () => {
-    // The host itself earns its place via matching flows, but the <encrypted>
-    // child is still context-only noise under an active filter.
-    stubApi([mk("a", { host: "pinned.example.com" })]);
-    useStore.getState().upsertFlow(mk("a", { host: "pinned.example.com" }));
-    useStore.getState().setPassthrough([pinned]);
-    useStore.getState().setQuery("pinned");
-    render(<App />);
-
-    expect(screen.queryByText("<encrypted>")).toBeNull();
-    expect(screen.getByText("items")).toBeInTheDocument();
   });
 });
 

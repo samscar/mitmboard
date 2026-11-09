@@ -17,7 +17,10 @@ export function MenuBar() {
   const breakpointsEnabled = useStore((s) => s.breakpoints.enabled);
   const maplocalArmed = useStore((s) => s.maplocal.enabled && s.maplocal.rules.some((r) => r.enabled));
   const [open, setOpen] = useState<string | null>(null);
-  const [sub, setSub] = useState<string | null>(null);
+  // Which submenu is open, by depth. Hovering a plain row closes submenus at
+  // its own level, but never an ancestor's -- otherwise moving the pointer
+  // into a submenu would immediately close it.
+  const [sub, setSub] = useState<{ depth: number; key: string } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,18 +54,22 @@ export function MenuBar() {
   }, [open]);
 
   const close = () => { setOpen(null); setSub(null); };
-
   const renderItems = (items: MenuEntry[], depth: number): React.ReactNode =>
     items.map((entry, i) => {
       if (entry === "-") return <div key={`sep-${depth}-${i}`} className="mb-sep" role="separator" />;
       const hasSub = !!entry.items?.length;
       const disabled = !entry.run || entry.enabled === false;
       const key = `${depth}:${entry.label}`;
-      const subOpen = sub === key;
+      const subOpen = sub?.key === key;
       return (
         <div key={`${depth}-${entry.label}-${i}`}
              className={"mb-row" + (hasSub ? " has-sub" : "")}
-             onMouseEnter={() => { if (open) setSub(hasSub ? key : null); }}>
+             onMouseEnter={() => {
+               if (!open) return;
+               // Opening a submenu of this row, or — for a plain row — closing
+               // submenus at this level and deeper while keeping the ancestors.
+               setSub(hasSub ? { depth, key } : sub && sub.depth < depth ? sub : null);
+             }}>
           <button
             className={"mb-item" + (disabled ? " is-disabled" : "") + (entry.checked ? " is-checked" : "")}
             role="menuitem"

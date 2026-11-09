@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MenuBar } from "../src/components/MenuBar";
 import { clearFlows } from "../src/api";
 import { useStore } from "../src/store";
+import { useUi } from "../src/uiStore";
 
 vi.mock("../src/api", () => ({
   clearFlows: vi.fn(() => Promise.resolve({ ok: true })),
@@ -71,5 +72,23 @@ describe("MenuBar", () => {
     const ssl = screen.getByRole("menuitem", { name: "SSL Proxying" });
     fireEvent.mouseEnter(ssl.parentElement as HTMLElement);
     expect(screen.getByRole("menuitem", { name: /Install Root Certificate on a Mobile Device/ })).toBeInTheDocument();
+  });
+
+  it("keeps the submenu open while the pointer moves into its rows", () => {
+    // Regression: hovering a row inside the submenu used to close the submenu
+    // itself, making "SSL Proxying → Install … on a Mobile Device" unreachable.
+    render(<MenuBar />);
+    openMenu("Help");
+    const ssl = screen.getByRole("menuitem", { name: "SSL Proxying" });
+    fireEvent.mouseEnter(ssl.parentElement as HTMLElement);
+
+    const child = screen.getByRole("menuitem", { name: /Install Root Certificate on a Mobile Device/ });
+    fireEvent.mouseEnter(child.closest(".mb-row") as HTMLElement);
+
+    // The rest of the submenu must still be there.
+    expect(screen.getByRole("menuitem", { name: "Save Root Certificate…" })).toBeInTheDocument();
+    // And the entry is clickable.
+    fireEvent.click(child);
+    expect(useUi.getState().dialog).toBe("connect");
   });
 });

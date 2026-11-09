@@ -3,17 +3,6 @@ from mitmproxy.test import taddons, tflow
 from mitmboard.addon import Mitmboard
 
 
-def _hello_data(sni, ignore=False, ip="9.8.7.6"):
-    client = SimpleNamespace(sni=sni, peername=(ip, 1))
-    context = SimpleNamespace(client=client)
-    return SimpleNamespace(context=context, ignore_connection=ignore)
-
-
-def _tls_failed_data(sni, ip="9.8.7.6"):
-    client = SimpleNamespace(sni=sni, peername=(ip, 1))
-    context = SimpleNamespace(client=client)
-    return SimpleNamespace(context=context)
-
 async def test_response_hook_records_and_publishes():
     addon = Mitmboard()
     published = []
@@ -108,100 +97,67 @@ async def test_replay_edited_applies_edits_to_a_clone():
         assert clone.response is None
         assert f.request.method == "GET"            # original untouched
 
-async def test_tls_clienthello_ignores_only_when_should_ignore():
+async def test_apply_ssl_proxying_sets_ignore_hosts_option():
     addon = Mitmboard()
-    with taddons.context(addon):
-        data = _hello_data("plain.example.com")
-        addon.tls_clienthello(data)
-        assert data.ignore_connection is False
-
-        addon.passthrough._auto.add("pinned.example.com")
-        data2 = _hello_data("pinned.example.com")
-        addon.tls_clienthello(data2)
-        assert data2.ignore_connection is True
+    with taddons.context(addon) as tctx:
+        addon.apply_ssl_proxying({"enabled": True, "exclude": ["*.example.com", "10.0.0.5"]})
+        assert list(tctx.options.ignore_hosts) == [
+            r"^.*\.example\.com(:\d+)?$",   # '*' -> '.*', anchored, port optional
+            r"^10\.0\.0\.5(:\d+)?$",
+        ]
+        assert addon.sslproxy.exclude == ["*.example.com", "10.0.0.5"]
 
 
-async def test_tls_failed_client_flips_after_threshold_and_publishes():
+async def test_apply_ssl_proxying_preserves_startup_baseline():
+    # config.yaml / CLI entries present at startup must survive UI saves.
     addon = Mitmboard()
-    published = []
-    async def fake_publish(evt): published.append(evt)
-    addon.broadcaster.publish = fake_publish
-    with taddons.context(addon):
-        data = _tls_failed_data("pinned.example.com", ip="1.2.3.4")
-        addon.tls_failed_client(data)
-        await addon._flush_for_test()
-        assert published[-1]["type"] == "passthrough.update"
-        assert published[-1]["hosts"][0]["host"] == "pinned.example.com"
-        assert published[-1]["hosts"][0]["failures"] == 1
-        assert addon.passthrough.should_ignore("pinned.example.com") is False
-
-        addon.tls_failed_client(data)
-        await addon._flush_for_test()
-        assert addon.passthrough.should_ignore("pinned.example.com") is True
-        assert published[-1]["hosts"][0]["failures"] == 2
+    with taddons.context(addon) as tctx:
+        tctx.options.update(ignore_hosts=["(?i)^apple\\.com:443$"])
+        addon.apply_ssl_proxying({"enabled": True, "exclude": ["*.example.com"]})
+        assert list(tctx.options.ignore_hosts) == [
+            "(?i)^apple\\.com:443$", r"^.*\.example\.com(:\d+)?$",
+        ]
 
 
-async def test_tls_failed_client_with_no_sni_is_noop():
+async def test_apply_ssl_proxying_disabled_passes_everything():
+    # Charles semantics: Enable SSL Proxying off -> nothing is intercepted.
+    # The exclude list collapses to a single wildcard.
     addon = Mitmboard()
-    published = []
-    async def fake_publish(evt): published.append(evt)
-    addon.broadcaster.publish = fake_publish
-    with taddons.context(addon):
-        data = _tls_failed_data(None)
-        addon.tls_failed_client(data)
-        await addon._flush_for_test()
-        assert published == []
+    with taddons.context(addon) as tctx:
+        addon.apply_ssl_proxying({"enabled": False, "exclude": ["*.example.com"]})
+        assert list(tctx.options.ignore_hosts) == [r"^.*(:\d+)?$"]
 
 
-async def test_tls_failed_client_peername_none_records_unknown():
-    # mitmproxy can hand us a client_conn with no peername yet (e.g. very
-    # early failure). Must not raise, and should record the client as
-    # "unknown" rather than crashing the hook.
+async def test_configure_captures_baseline_and_applies_saved_state():
     addon = Mitmboard()
-    published = []
-    async def fake_publish(evt): published.append(evt)
-    addon.broadcaster.publish = fake_publish
-    with taddons.context(addon):
-        client = SimpleNamespace(sni="host.example.com", peername=None)
-        data = SimpleNamespace(context=SimpleNamespace(client=client))
-        addon.tls_failed_client(data)
-        await addon._flush_for_test()
-        assert published[-1]["hosts"][0]["clients"] == ["unknown"]
+    saved = {"enabled": True, "exclude": ["*.example.net"]}
+    addon.registry.ssl_proxying = lambda: saved
+    with taddons.context(addon) as tctx:
+        tctx.options.update(ignore_hosts=["^config-yaml-entry:443$"])
+        addon.configure({"listen_port"})
+        # baseline captured, then saved UI entries merged on top
+        assert list(tctx.options.ignore_hosts) == [
+            "^config-yaml-entry:443$", r"^.*\.example\.net(:\d+)?$",
+        ]
+        # Re-running configure (any option change does) must not re-capture:
+        # the merged option value must never become the new baseline.
+        addon.configure({"listen_port"})
+        assert addon.sslproxy.base == ["^config-yaml-entry:443$"]
+        assert list(tctx.options.ignore_hosts) == [
+            "^config-yaml-entry:443$", r"^.*\.example\.net(:\d+)?$",
+        ]
 
 
-async def test_tls_failed_client_missing_client_does_not_raise():
-    # A hook exception in mitmproxy kills the connection outright, so a
-    # malformed/partial `data.context` must be swallowed, not raised.
+async def test_configure_without_saved_state_leaves_baseline_alone():
+    # A config that predates the feature must leave CLI --ignore-hosts
+    # values alone: only a saved dialog state is authoritative (ADR-0010).
     addon = Mitmboard()
-    published = []
-    async def fake_publish(evt): published.append(evt)
-    addon.broadcaster.publish = fake_publish
-    with taddons.context(addon):
-        data = SimpleNamespace(context=SimpleNamespace())  # no .client at all
-        addon.tls_failed_client(data)  # must not raise
-        await addon._flush_for_test()
-        assert published == []
-
-
-async def test_tls_clienthello_missing_client_does_not_raise():
-    addon = Mitmboard()
-    with taddons.context(addon):
-        data = SimpleNamespace(context=SimpleNamespace())  # no .client at all
-        addon.tls_clienthello(data)  # must not raise
-        assert not hasattr(data, "ignore_connection") or data.ignore_connection is False
-
-
-async def test_tls_clienthello_passes_client_ip_for_config_hosts():
-    # Config-sourced entries should get real `clients`, not an empty list —
-    # tls_clienthello must forward the peer IP into should_ignore().
-    addon = Mitmboard()
-    addon.passthrough._patterns.append("pinned.example.com")
-    with taddons.context(addon):
-        data = _hello_data("pinned.example.com", ip="7.7.7.7")
-        addon.tls_clienthello(data)
-        assert data.ignore_connection is True
-        snap = {e["host"]: e for e in addon.passthrough.snapshot()}
-        assert snap["pinned.example.com"]["clients"] == ["7.7.7.7"]
+    addon.registry.ssl_proxying = lambda: None
+    with taddons.context(addon) as tctx:
+        tctx.options.update(ignore_hosts=["foo"])
+        addon.configure({"listen_port"})
+        assert list(tctx.options.ignore_hosts) == ["foo"]
+        assert addon.sslproxy.base == ["foo"]
 
 
 async def test_mflow_map_evicts_with_capacity():

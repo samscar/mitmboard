@@ -50,35 +50,54 @@ def test_corrupt_config_recovers_gracefully(tmp_path):
     assert r.all_labels() == {}
     assert r.label_for("1.1.1.1", "iPhone") == "iPhone"
 
-def test_passthrough_patterns_default_empty(tmp_path):
+def test_ssl_proxying_default_is_none(tmp_path):
+    # None (not a default dict) is meaningful: only a saved dialog state may
+    # override CLI --ignore-hosts at startup (ADR-0010).
     r = ClientRegistry(tmp_path / "config.json")
-    assert r.passthrough_patterns() == []
+    assert r.ssl_proxying() is None
 
-def test_passthrough_patterns_read_from_config(tmp_path):
+def test_ssl_proxying_roundtrip(tmp_path):
+    r = ClientRegistry(tmp_path / "config.json")
+    r.set_ssl_proxying({"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]})
+    assert r.ssl_proxying() == {"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]}
+    data = json.loads((tmp_path / "config.json").read_text())
+    assert data["ssl_proxying"] == {"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]}
+
+def test_ssl_proxying_rejects_bad_input(tmp_path):
+    r = ClientRegistry(tmp_path / "config.json")
+    with pytest.raises(ValueError):
+        r.set_ssl_proxying({"enabled": True, "exclude": ["  "]})
+    with pytest.raises(ValueError):
+        r.set_ssl_proxying({"enabled": True, "exclude": [42]})
+    with pytest.raises(ValueError):
+        r.set_ssl_proxying({"enabled": True, "exclude": "not-a-list"})
+    assert r.ssl_proxying() is None
+
+def test_ssl_proxying_tolerates_corrupt_saved_types(tmp_path):
     p = tmp_path / "config.json"
-    p.write_text('{"passthrough_hosts": ["*.itunes.apple.com", "*.fbcdn.net"]}')
+    p.write_text('{"ssl_proxying": {"enabled": "yes", "exclude": ["ok", 7, null]}}')
     r = ClientRegistry(p)
-    assert r.passthrough_patterns() == ["*.itunes.apple.com", "*.fbcdn.net"]
+    assert r.ssl_proxying() == {"enabled": True, "exclude": ["ok"]}
 
 def test_set_label_preserves_other_config_keys(tmp_path):
     # set_label must be read-modify-write: it should only ever touch the
     # "labels" key, never clobber sibling top-level config like
-    # passthrough_hosts written by a human or another feature.
+    # ssl_proxying written by the UI or another feature.
     p = tmp_path / "config.json"
     p.write_text(json.dumps({
-        "passthrough_hosts": ["*.itunes.apple.com"],
+        "ssl_proxying": {"enabled": True, "exclude": ["*.itunes.apple.com"]},
         "labels": {"9.9.9.9": "Old Phone"},
         "some_future_key": {"nested": True},
     }))
     r = ClientRegistry(p)
     r.set_label("1.1.1.1", "New Phone")
     data = json.loads(p.read_text())
-    assert data["passthrough_hosts"] == ["*.itunes.apple.com"]
+    assert data["ssl_proxying"] == {"enabled": True, "exclude": ["*.itunes.apple.com"]}
     assert data["labels"] == {"9.9.9.9": "Old Phone", "1.1.1.1": "New Phone"}
     assert data["some_future_key"] == {"nested": True}
     # and a freshly-loaded registry sees the same merged state
     r2 = ClientRegistry(p)
-    assert r2.passthrough_patterns() == ["*.itunes.apple.com"]
+    assert r2.ssl_proxying()["exclude"] == ["*.itunes.apple.com"]
     assert r2.all_labels()["1.1.1.1"] == "New Phone"
 
 def test_set_label_is_atomic_no_partial_file(tmp_path, monkeypatch):
@@ -98,12 +117,12 @@ def test_set_label_is_atomic_no_partial_file(tmp_path, monkeypatch):
 
 def test_breakpoints_config_roundtrip_preserves_keys(tmp_path):
     p = tmp_path / "c.json"
-    p.write_text('{"labels": {"1.1.1.1": "me"}, "passthrough_hosts": ["*.a"]}')
+    p.write_text('{"labels": {"1.1.1.1": "me"}, "ssl_proxying": {"enabled": true, "exclude": ["*.a"]}}')
     reg = ClientRegistry(p)
     assert reg.breakpoints() == {"enabled": True, "rules": []}
     reg.set_breakpoints({"enabled": False, "rules": [{"id": "r1", "host": "*.soum.sa", "phase": "request"}]})
     data = json.loads(p.read_text())
-    assert data["passthrough_hosts"] == ["*.a"] and data["labels"] == {"1.1.1.1": "me"}
+    assert data["ssl_proxying"] == {"enabled": True, "exclude": ["*.a"]} and data["labels"] == {"1.1.1.1": "me"}
     assert data["breakpoints"]["rules"][0]["method"] == "" and data["breakpoints"]["enabled"] is False
     with pytest.raises(ValueError): reg.set_breakpoints({"enabled": True, "rules": [{"id": "z", "phase": "x"}]})
 

@@ -8,7 +8,7 @@ import { create } from "zustand";
  *  deliberately separate from `store.ts`: that one holds captured traffic,
  *  this one holds where the user is looking. */
 
-export type UiDialog = "settings" | "maplocal" | "breakpoints" | "passthrough" | "connect";
+export type UiDialog = "settings" | "maplocal" | "breakpoints" | "sslproxying" | "connect";
 
 /** Charles 5.2.2 detail tabs, in the order its View menu counts them.
  *  The tab *and* the viewer choices persist across selections -- Charles keeps

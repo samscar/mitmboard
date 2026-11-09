@@ -33,12 +33,20 @@ describe("store", () => {
     useStore.getState().setQuery("device:2.2.2.2");
     expect(useStore.getState().visibleFlows().map((f) => f.id)).toEqual(["2"]);
   });
-  it("setPassthrough replaces the passthrough host list", () => {
-    expect(useStore.getState().passthrough).toEqual([]);
-    const hosts = [{ host: "pinned.example.com", source: "auto" as const, active: true, failures: 2,
-      clients: ["1.1.1.1"], first_seen: 1, last_seen: 2 }];
-    useStore.getState().setPassthrough(hosts);
-    expect(useStore.getState().passthrough).toEqual(hosts);
+  it("setSslproxying replaces the SSL Proxying state", () => {
+    expect(useStore.getState().sslproxying).toEqual({ enabled: true, exclude: [], base: [] });
+    const saved = { enabled: false, exclude: ["*.example.com", "10.0.0.5"], base: ["^config-yaml:443$"] };
+    useStore.getState().setSslproxying(saved);
+    expect(useStore.getState().sslproxying).toEqual(saved);
+  });
+  it("clear wipes traffic but keeps the filter query", () => {
+    // Charles keeps the filter text across session clears: losing it makes the
+    // post-clear tree look broken. Only the user edits the filter.
+    useStore.getState().upsertFlow(mk("1"));
+    useStore.getState().setQuery("req");
+    useStore.getState().clear();
+    expect(useStore.getState().flows.size).toBe(0);
+    expect(useStore.getState().query).toBe("req");
   });
 });
 

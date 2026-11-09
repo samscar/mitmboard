@@ -15,10 +15,14 @@ const mk = (id: string): FlowMeta => ({
 describe("Inspector layout", () => {
   beforeEach(() => useStore.getState().clear());
 
-  it("shows the first-run empty state when there are no flows", () => {
+  it("shows an empty list instead of an onboarding page when there are no flows", () => {
     render(<App />);
-    expect(screen.getByText(/Waiting for traffic/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Connect a device/i })).toBeInTheDocument();
+    // The connect-guide page is gone: with zero flows the list panel is just
+    // empty, the way Charles starts.
+    expect(document.querySelector(".listpanel .stree")).toBeInTheDocument();
+    expect(screen.getByText("No requests")).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for traffic/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Connect a device/i })).toBeNull();
   });
 
   it("has no Devices or Dashboard top-level pages any more", () => {

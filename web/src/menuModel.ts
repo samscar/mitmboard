@@ -149,7 +149,7 @@ export function buildMenus(ctx: MenuContext): Menu[] {
         cmd(ctx.breakpointsEnabled ? "Disable Breakpoints" : "Enable Breakpoints", () => { toggleBreakpoints().catch(() => {}); }),
         "-",
         todo("Recording Settings…"),
-        todo("SSL Proxying Settings…"),
+        cmd("SSL Proxying Settings…", openDialog("sslproxying")),
         todo("Throttling Settings…"),
         cmd("Breakpoints Settings…", openDialog("breakpoints")),
         todo("Reverse Proxies"),
