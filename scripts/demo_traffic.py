@@ -20,7 +20,7 @@ URLS = [
     ("GET", "https://jsonplaceholder.typicode.com/posts?_limit=5", None),
     ("GET", "https://jsonplaceholder.typicode.com/users/1", None),
     ("POST", "https://jsonplaceholder.typicode.com/posts", b'{"title":"hello","body":"from mitmboard","userId":7}'),
-    ("GET", "https://api.github.com/repos/anthibo/proxino", None),
+    ("GET", "https://api.github.com/repos/samscar/mitmboard", None),
     ("GET", "https://httpbin.org/status/404", None),
     ("GET", "https://httpbin.org/status/500", None),
     ("GET", "https://httpbin.org/delay/1", None),

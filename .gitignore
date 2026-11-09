@@ -35,3 +35,20 @@ mitmboard/web_dist/
 
 # Local scratch space used for verification runs
 .scratch/
+
+# Credentials and signing material — never commit to a public repo
+.env
+.env.*
+.npmrc
+.pypirc
+pip.conf
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.p8
+.git-credentials
+id_rsa*

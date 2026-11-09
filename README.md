@@ -4,9 +4,9 @@
 
 **A free, open-source HTTP inspector for your apps.** Point a phone, emulator, browser, script, or your own machine at Mitmboard and watch its HTTPS traffic live — requests, responses, timings, grouped per client — with filters, a JSON/HTML viewer, replay, edit-and-resend, and breakpoints. A self-hosted alternative to Proxyman and Charles: no account, no license, runs entirely on your machine.
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/hero.png" alt="Mitmboard inspector showing captured iPhone traffic with a JSON response open" width="900"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/hero.png" alt="Mitmboard inspector showing captured iPhone traffic with a JSON response open" width="900"></p>
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/demo.gif" alt="Filtering, opening a request, viewing headers and timing, and edit-and-resend" width="900"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/demo.gif" alt="Filtering, opening a request, viewing headers and timing, and edit-and-resend" width="900"></p>
 
 > ⚠️ **It's a man-in-the-middle tool by design.** Use it only on devices and traffic you own or are authorized to inspect. The web UI binds to `127.0.0.1` only.
 
@@ -88,18 +88,18 @@ The commercial inspectors are excellent tools, and if you need map-local or scri
 
 ## How it works
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/architecture.gif" alt="Animated: a request pulses from a client through mitmproxy (which decrypts on port 8080) into the Mitmboard addon, then FastAPI on 8081, and the response streams back to the React web UI." width="860"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/architecture.gif" alt="Animated: a request pulses from a client through mitmproxy (which decrypts on port 8080) into the Mitmboard addon, then FastAPI on 8081, and the response streams back to the React web UI." width="860"></p>
 
 - **`mitmboard/`** — the mitmproxy addon (`addon.py`), flow model + store, client/device registry, the FastAPI server (`server.py`), and helpers: TLS passthrough for pinned hosts (`passthrough.py`), breakpoints (`breakpoints.py`), WebSocket frames (`wsstore.py`), body decoders (`decode.py`), HAR, sessions, CA info, transform.
 - **`web/`** — the Vite + React + TypeScript UI (Zustand store, filter DSL, JSON viewer, etc.).
 
-See [`docs/architecture.md`](https://github.com/anthibo/proxino/blob/main/docs/architecture.md) for a deeper tour.
+See [`docs/architecture.md`](https://github.com/samscar/mitmboard/blob/main/docs/architecture.md) for a deeper tour.
 
 ---
 
 ## Connecting a device
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/connect.gif" alt="Animated: set the phone's HTTP proxy, trust the CA, and live requests start flowing to Mitmboard." width="720"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/connect.gif" alt="Animated: set the phone's HTTP proxy, trust the CA, and live requests start flowing to Mitmboard." width="720"></p>
 
 1. Put the phone on the **same Wi‑Fi** as this machine.
 2. Set a **manual HTTP proxy** to this machine's LAN IP, port **8080**
@@ -112,7 +112,7 @@ See [`docs/architecture.md`](https://github.com/anthibo/proxino/blob/main/docs/a
 
 Some apps pin certificates (Instagram, Facebook, the iOS App Store/iCloud) and will refuse the proxy's cert every time — without this, they'd simply stop working while the phone is proxied. After two refusals Mitmboard passes that host through encrypted so the app keeps working, and lists it under **Passthrough** in the sidebar.
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/passthrough.gif" alt="Animated: two refused handshakes at mitmproxy, then the pinned host is forwarded encrypted straight through." width="720"></p> You can retry decryption for a host from there once it stops pinning, or pre‑list known hosts under `"passthrough_hosts"` in `~/.mitmboard/config.json` to skip the two failed attempts.
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/passthrough.gif" alt="Animated: two refused handshakes at mitmproxy, then the pinned host is forwarded encrypted straight through." width="720"></p> You can retry decryption for a host from there once it stops pinning, or pre‑list known hosts under `"passthrough_hosts"` in `~/.mitmboard/config.json` to skip the two failed attempts.
 
 ---
 
@@ -130,7 +130,7 @@ Turn the system proxy back **off** when Mitmboard isn't running, or the machine 
 
 ## Breakpoints
 
-<p align="center"><img src="https://raw.githubusercontent.com/anthibo/proxino/main/docs/media/breakpoint.gif" alt="Animated: a matching request pauses at Mitmboard, a header is added, and it continues to the server." width="720"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/breakpoint.gif" alt="Animated: a matching request pauses at Mitmboard, a header is added, and it continues to the server." width="720"></p>
 
 Open **Breakpoints** in the top bar to add a rule matching a host, path, method, and phase (request or response). When a request or response matches, it pauses in a **Paused** group at the top of the table — select it to open the inline editor and modify headers, body, or status. Press ⌘↵ to **Continue** or ⌘⌫ to **Drop** the paused flow; if no action is taken within 60 s, it auto-continues. Nothing pauses while no UI client is connected.
 
@@ -185,7 +185,7 @@ docs/           documentation
 - PyPI package (`pipx install mitmboard`)
 - Homebrew tap
 
-Ideas and PRs welcome — see [CONTRIBUTING.md](https://github.com/anthibo/proxino/blob/main/CONTRIBUTING.md).
+Ideas and PRs welcome — see [CONTRIBUTING.md](https://github.com/samscar/mitmboard/blob/main/CONTRIBUTING.md).
 
 ---
 

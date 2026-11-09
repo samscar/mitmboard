@@ -52,7 +52,7 @@ Include what you expected, what happened, and (for capture problems) the relevan
 4. Publish the draft.
 
 PyPI uses [trusted publishing](https://docs.pypi.org/trusted-publishers/): on PyPI, add a
-publisher for `anthibo/proxino`, workflow `release.yml`, environment `pypi`. Until that
+publisher for `samscar/mitmboard`, workflow `release.yml`, environment `pypi`. Until that
 exists the `pypi` job fails while the rest of the release still completes.
 
 Builds are unsigned. Adding signing later means adding secrets and the Tauri
