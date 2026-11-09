@@ -31,4 +31,4 @@
 
 ## 本仓库现状
 
-当前唯一的 git 远程是 `upstream` → `github.com/anthibo/proxino.git`，它是本项目的 fork 基座，不是自有仓库；本机也未安装 `gh` CLI。因此不向该远程提交 issue。若将来建立自有 fork，把本文件替换为 GitHub 版本即可。
+项目发布在 `github.com/samscar/mitmboard`；fork 基座为 `github.com/anthibo/proxino`（MIT，归属见 `NOTICE`）。issue 仍以本地 markdown 维护，不向任何 git 远程提交 issue；本机也未安装 `gh` CLI。若改用 GitHub Issues，把本文件替换为对应版本即可。
