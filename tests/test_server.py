@@ -6,6 +6,7 @@ from mitmboard.store import FlowStore
 from mitmboard.clients import ClientRegistry
 from mitmboard.broadcaster import Broadcaster
 from mitmboard.wsstore import WsStore
+from mitmboard.ignorehosts import read_patterns, revision_of, write_patterns
 from tests.test_models import make_flow
 
 def client(tmp_path):
@@ -142,53 +143,110 @@ def test_replay_edited_503_without_replayer(tmp_path):
     c, _, _ = client(tmp_path)
     assert c.post("/api/flows/a/replay-edited", json={}).status_code == 503
 
-def test_ssl_proxying_default_without_saved_state(tmp_path):
-    c, _, _ = client(tmp_path)
-    assert c.get("/api/ssl-proxying").json() == {"enabled": True, "exclude": [], "base": []}
-
-def test_ssl_proxying_get_reports_captured_baseline(tmp_path):
-    reg = ClientRegistry(tmp_path / "c.json")
-    c = TestClient(make_app(FlowStore(), reg, Broadcaster(),
-                            ssl_proxying_state=lambda: {
-                                "enabled": True, "exclude": [], "base": ["^config-yaml:443$"]}))
-    assert c.get("/api/ssl-proxying").json() == {
-        "enabled": True, "exclude": [], "base": ["^config-yaml:443$"]}
-
-def test_ssl_proxying_put_roundtrip_and_publish(tmp_path):
+def ssl_client(tmp_path, apply=None, state=None):
+    """An app whose config.yaml is a temp file — never the user's real one."""
+    yml = tmp_path / "config.yaml"
     reg = ClientRegistry(tmp_path / "c.json")
     published = []
     bc = Broadcaster()
     async def fake_publish(evt): published.append(evt)
     bc.publish = fake_publish
-    applied = {}
-    def fake_apply(data):
-        applied.clear()
-        applied.update({**data, "base": ["^config-yaml:443$"]})
-        return applied
     c = TestClient(make_app(FlowStore(), reg, bc,
-                            ssl_proxying_apply=fake_apply,
-                            ssl_proxying_state=lambda: applied))
-    r = c.put("/api/ssl-proxying", json={"enabled": False, "exclude": ["*.example.com"]})
-    assert r.status_code == 200
-    assert r.json() == {"enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
-    assert reg.ssl_proxying() == {"enabled": False, "exclude": ["*.example.com"]}
-    assert applied == {"enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
-    assert published[-1]["type"] == "sslproxying.update"
-    assert published[-1]["base"] == ["^config-yaml:443$"]
-    assert c.get("/api/ssl-proxying").json() == {
-        "enabled": False, "exclude": ["*.example.com"], "base": ["^config-yaml:443$"]}
+                            ssl_proxying_apply=apply, ssl_proxying_state=state,
+                            ignorehosts_path=yml))
+    return c, reg, yml, published
 
-def test_ssl_proxying_put_invalid_pattern_422(tmp_path):
-    c, _, _ = client(tmp_path)
-    assert c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["   "]}).status_code == 422
-    assert c.put("/api/ssl-proxying", json={"enabled": True, "exclude": [3]}).status_code == 422
+def test_ssl_proxying_get_reads_config_yaml(tmp_path):
+    c, _, yml, _ = ssl_client(tmp_path)
+    yml.write_text("# header\nignore_hosts:\n- '(?i)google'\n")
+    body = c.get("/api/ssl-proxying").json()
+    assert body == {"enabled": True, "exclude": ["(?i)google"],
+                    "revision": revision_of(["(?i)google"])}
+
+def test_ssl_proxying_default_when_no_config_file(tmp_path):
+    c, _, _, _ = ssl_client(tmp_path)
+    assert c.get("/api/ssl-proxying").json() == {
+        "enabled": True, "exclude": [], "revision": revision_of([])}
+
+def test_ssl_proxying_get_replays_external_edit_once(tmp_path):
+    applied = []
+    def fake_apply(data): applied.append(dict(data)); return dict(data)
+    live = {"enabled": True, "exclude": ["old"]}
+    c, _, yml, published = ssl_client(tmp_path, apply=fake_apply, state=lambda: live)
+    yml.write_text("ignore_hosts:\n- 'new'\n")
+    c.get("/api/ssl-proxying")
+    assert applied == [{"enabled": True, "exclude": ["new"]}]
+    assert published[-1]["type"] == "sslproxying.update"
+    assert published[-1]["exclude"] == ["new"]
+    live.update(exclude=["new"])
+    c.get("/api/ssl-proxying")
+    assert len(applied) == 1   # unchanged file -> no second options.update
+
+def test_ssl_proxying_put_writes_file_and_publishes(tmp_path):
+    applied = []
+    def fake_apply(data): applied.append(dict(data)); return dict(data)
+    def state(): return applied[-1] if applied else {"enabled": True, "exclude": ["(?i)google"]}
+    c, reg, yml, published = ssl_client(tmp_path, apply=fake_apply, state=state)
+    yml.write_text("# header\nignore_hosts:\n- '(?i)google'\nother_key: 7\n")
+    rev = c.get("/api/ssl-proxying").json()["revision"]
+    wanted = ["(?i)google", r"^10\.53\..*\..*(:\d+)?$"]
+    r = c.put("/api/ssl-proxying", json={"enabled": False, "exclude": wanted, "revision": rev})
+    assert r.status_code == 200
+    assert r.json()["exclude"] == wanted
+    assert read_patterns(yml)[0] == wanted
+    text = yml.read_text()
+    assert text.startswith("# header") and "other_key: 7" in text  # comments/keys survive
+    assert reg.ssl_proxying() == {"enabled": False}
+    assert applied[-1] == {"enabled": False, "exclude": wanted}
+    assert published[-1]["revision"] == r.json()["revision"]
+
+def test_ssl_proxying_enabled_only_change_does_not_rewrite_file(tmp_path):
+    c, reg, yml, _ = ssl_client(tmp_path)
+    yml.write_text("ignore_hosts:\n- '(?i)google'\n")
+    body = c.get("/api/ssl-proxying").json()
+    before = yml.read_text()
+    r = c.put("/api/ssl-proxying", json={"enabled": False,
+                                         "exclude": ["(?i)google"],
+                                         "revision": body["revision"]})
+    assert r.status_code == 200 and yml.read_text() == before
+    assert reg.ssl_proxying() == {"enabled": False}
+
+def test_ssl_proxying_conflict_409_then_force(tmp_path):
+    c, _, yml, _ = ssl_client(tmp_path)
+    yml.write_text("ignore_hosts:\n- '(?i)google'\n")
+    rev = c.get("/api/ssl-proxying").json()["revision"]
+    write_patterns(yml, ["(?i)bing"])        # external edit
+    r = c.put("/api/ssl-proxying", json={"enabled": True,
+                                         "exclude": ["(?i)foo"], "revision": rev})
+    assert r.status_code == 409
+    assert r.json()["exclude"] == ["(?i)bing"]
+    assert read_patterns(yml)[0] == ["(?i)bing"]   # never silently overwritten
+    r = c.put("/api/ssl-proxying", json={"enabled": True,
+                                         "exclude": ["(?i)foo"], "revision": rev,
+                                         "force": True})
+    assert r.status_code == 200
+    assert read_patterns(yml)[0] == ["(?i)foo"]
+
+def test_ssl_proxying_invalid_regex_422_without_write(tmp_path):
+    c, _, yml, _ = ssl_client(tmp_path)
+    yml.write_text("ignore_hosts:\n- '(?i)google'\n")
+    rev = c.get("/api/ssl-proxying").json()["revision"]
+    before = yml.read_text()
+    r = c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["(["], "revision": rev})
+    assert r.status_code == 422 and yml.read_text() == before
+
+def test_ssl_proxying_broken_yaml_503(tmp_path):
+    c, _, yml, _ = ssl_client(tmp_path)
+    yml.write_text("- not\n- a\n- mapping\n")
+    assert c.get("/api/ssl-proxying").status_code == 503
 
 def test_ssl_proxying_put_apply_failure_503(tmp_path):
     def boom(_data):
         raise RuntimeError("no proxy master")
-    c = TestClient(make_app(FlowStore(), ClientRegistry(tmp_path / "c.json"), Broadcaster(),
-                            ssl_proxying_apply=boom))
-    r = c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["x.example.com"]})
+    c, _, yml, _ = ssl_client(tmp_path, apply=boom)
+    yml.write_text("ignore_hosts: []\n")
+    rev = c.get("/api/ssl-proxying").json()["revision"]
+    r = c.put("/api/ssl-proxying", json={"enabled": True, "exclude": ["^x$"], "revision": rev})
     assert r.status_code == 503
 
 def test_breakpoints_crud_and_validation(tmp_path):

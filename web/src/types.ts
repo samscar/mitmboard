@@ -44,11 +44,16 @@ export interface FlowDetail extends FlowMeta {
 export interface ClientInfo { ip: string; label: string; count: number; kind?: DeviceKind; }
 export interface SSLProxying {
   enabled: boolean;
-  /** UI-managed wildcard entries, persisted in config.json. */
+  /** Raw regexes from ~/.mitmproxy/config.yaml — the single source of truth. */
   exclude: string[];
-  /** Startup ignore_hosts patterns (~/.mitmproxy/config.yaml / --ignore-hosts),
-      shown read-only: they are regexes maintained in their own files. */
-  base: string[];
+  /** Hash of the ignore_hosts block; guards against external edits. */
+  revision: string;
+}
+export interface SSLProxyingSave {
+  enabled: boolean;
+  exclude: string[];
+  revision: string;
+  force?: boolean;
 }
 export interface BreakpointRule {
   id: string; enabled: boolean; host: string; path: string; method: string;
@@ -68,7 +73,7 @@ export interface PausedEntry {
 export type WSEvent =
   | { type: "flow.new" | "flow.complete" | "flow.error"; flow: FlowMeta }
   | { type: "client.new"; client: ClientInfo }
-  | { type: "sslproxying.update"; enabled: boolean; exclude: string[]; base: string[] }
+  | { type: "sslproxying.update"; enabled: boolean; exclude: string[]; revision: string }
   | { type: "flow.update"; flow: FlowMeta }
   | { type: "ws.message"; flow_id: string; message: WsMessage }
   | { type: "breakpoints.update"; enabled: boolean; rules: BreakpointRule[] }

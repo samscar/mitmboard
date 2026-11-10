@@ -31,7 +31,7 @@ function stubApi(flows: FlowMeta[], slow: Record<string, (resolve: Resolver) => 
     if (url === "/api/flows") return ok(flows);
     if (url === "/api/maplocal" && method === "PUT") return ok(JSON.parse(String(init!.body)));
     if (url === "/api/maplocal") return ok({ enabled: true, rules: [] });
-    if (url === "/api/ssl-proxying" || url === "/api/paused" || url === "/api/clients") return ok({ enabled: true, exclude: [], base: [] });
+    if (url === "/api/ssl-proxying" || url === "/api/paused" || url === "/api/clients") return ok({ enabled: true, exclude: [], revision: "" });
     if (url === "/api/breakpoints") return ok({ enabled: false, rules: [] });
     const m = url.match(/^\/api\/flows\/([^/]+)$/);
     if (m) {

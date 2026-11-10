@@ -34,8 +34,8 @@ describe("store", () => {
     expect(useStore.getState().visibleFlows().map((f) => f.id)).toEqual(["2"]);
   });
   it("setSslproxying replaces the SSL Proxying state", () => {
-    expect(useStore.getState().sslproxying).toEqual({ enabled: true, exclude: [], base: [] });
-    const saved = { enabled: false, exclude: ["*.example.com", "10.0.0.5"], base: ["^config-yaml:443$"] };
+    expect(useStore.getState().sslproxying).toEqual({ enabled: true, exclude: [], revision: "" });
+    const saved = { enabled: false, exclude: ["^.*\\.example\\.com(:\\d+)?$"], revision: "abc123" };
     useStore.getState().setSslproxying(saved);
     expect(useStore.getState().sslproxying).toEqual(saved);
   });

@@ -1,4 +1,4 @@
-import type { FlowMeta, FlowDetail, ClientInfo, WsMessage, Breakpoints, PausedEntry, MapLocal, SSLProxying } from "./types";
+import type { FlowMeta, FlowDetail, ClientInfo, WsMessage, Breakpoints, PausedEntry, MapLocal, SSLProxying, SSLProxyingSave } from "./types";
 const j = async (r: Response) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); };
 export const fetchFlows = (): Promise<FlowMeta[]> => fetch("/api/flows").then(j);
 export const fetchDetail = (id: string): Promise<FlowDetail> => fetch(`/api/flows/${id}`).then(j);
@@ -13,8 +13,21 @@ export const loadSession = (flows: unknown) =>
   fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(flows) }).then(j);
 export const caInfo = () => fetch("/api/ca-info").then(j);
 export const fetchSslProxying = (): Promise<SSLProxying> => fetch("/api/ssl-proxying").then(j);
-export const saveSslProxying = (s: SSLProxying): Promise<SSLProxying> =>
-  fetch("/api/ssl-proxying", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(s) }).then(j);
+
+/** The server's latest state when config.yaml was changed outside the UI. */
+export class SslProxyingConflict extends Error {
+  constructor(public state: SSLProxying) { super("config.yaml changed externally"); }
+}
+export const saveSslProxying = async (s: SSLProxyingSave): Promise<SSLProxying> => {
+  const r = await fetch("/api/ssl-proxying", {
+    method: "PUT", headers: { "content-type": "application/json" },
+    body: JSON.stringify(s),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (r.status === 409) throw new SslProxyingConflict(body as SSLProxying);
+  if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
+  return body as SSLProxying;
+};
 export const replay = (id: string) => fetch(`/api/flows/${id}/replay`, { method: "POST" }).then(j);
 export interface ReplayEdit { method?: string; url?: string; headers?: [string, string][]; body?: string | null; }
 export const replayEdited = (id: string, edits: ReplayEdit) =>

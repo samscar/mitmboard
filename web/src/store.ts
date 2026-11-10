@@ -88,7 +88,7 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   flows: new Map(), order: [], selectedId: null, detail: null,
-  query: "", listMode: loadListMode(), sslproxying: { enabled: true, exclude: [], base: [] },
+  query: "", listMode: loadListMode(), sslproxying: { enabled: true, exclude: [], revision: "" },
   selectedNode: null, focus: [], focusFilterOn: false,
   detailWidth: loadDetailWidth(),
   wsMessages: {},

@@ -97,67 +97,62 @@ async def test_replay_edited_applies_edits_to_a_clone():
         assert clone.response is None
         assert f.request.method == "GET"            # original untouched
 
-async def test_apply_ssl_proxying_sets_ignore_hosts_option():
+async def test_apply_ssl_proxying_sets_ignore_hosts_from_raw_regexes():
     addon = Mitmboard()
+    patterns = [r"^.*\.example\.com(:\d+)?$", r"^10\.0\.0\.5(:\d+)?$"]
     with taddons.context(addon) as tctx:
-        addon.apply_ssl_proxying({"enabled": True, "exclude": ["*.example.com", "10.0.0.5"]})
-        assert list(tctx.options.ignore_hosts) == [
-            r"^.*\.example\.com(:\d+)?$",   # '*' -> '.*', anchored, port optional
-            r"^10\.0\.0\.5(:\d+)?$",
-        ]
-        assert addon.sslproxy.exclude == ["*.example.com", "10.0.0.5"]
+        addon.apply_ssl_proxying({"enabled": True, "exclude": patterns})
+        assert list(tctx.options.ignore_hosts) == patterns
+        assert addon.sslproxy.exclude == patterns
 
 
-async def test_apply_ssl_proxying_preserves_startup_baseline():
-    # config.yaml / CLI entries present at startup must survive UI saves.
+async def test_apply_ssl_proxying_does_not_merge_cli_values():
+    # ADR 0014: config.yaml wins; no startup baseline survives a save.
     addon = Mitmboard()
     with taddons.context(addon) as tctx:
         tctx.options.update(ignore_hosts=["(?i)^apple\\.com:443$"])
-        addon.apply_ssl_proxying({"enabled": True, "exclude": ["*.example.com"]})
-        assert list(tctx.options.ignore_hosts) == [
-            "(?i)^apple\\.com:443$", r"^.*\.example\.com(:\d+)?$",
-        ]
+        addon.apply_ssl_proxying({"enabled": True, "exclude": [r"^.*\.example\.com(:\d+)?$"]})
+        assert list(tctx.options.ignore_hosts) == [r"^.*\.example\.com(:\d+)?$"]
 
 
 async def test_apply_ssl_proxying_disabled_passes_everything():
     # Charles semantics: Enable SSL Proxying off -> nothing is intercepted.
-    # The exclude list collapses to a single wildcard.
     addon = Mitmboard()
     with taddons.context(addon) as tctx:
-        addon.apply_ssl_proxying({"enabled": False, "exclude": ["*.example.com"]})
+        addon.apply_ssl_proxying({"enabled": False, "exclude": [r"^.*\.example\.com(:\d+)?$"]})
         assert list(tctx.options.ignore_hosts) == [r"^.*(:\d+)?$"]
 
 
-async def test_configure_captures_baseline_and_applies_saved_state():
+async def test_sync_from_config_yaml_overrides_cli(tmp_path, monkeypatch):
+    from mitmboard.clients import ClientRegistry
+    from mitmboard.ignorehosts import write_patterns
+    yml = tmp_path / "config.yaml"
+    write_patterns(yml, ["(?i)google"])
+    monkeypatch.setattr("mitmboard.ignorehosts.mitmproxy_config_path", lambda: yml)
     addon = Mitmboard()
-    saved = {"enabled": True, "exclude": ["*.example.net"]}
-    addon.registry.ssl_proxying = lambda: saved
+    addon.registry = ClientRegistry(tmp_path / "c.json")
     with taddons.context(addon) as tctx:
-        tctx.options.update(ignore_hosts=["^config-yaml-entry:443$"])
-        addon.configure({"listen_port"})
-        # baseline captured, then saved UI entries merged on top
-        assert list(tctx.options.ignore_hosts) == [
-            "^config-yaml-entry:443$", r"^.*\.example\.net(:\d+)?$",
-        ]
-        # Re-running configure (any option change does) must not re-capture:
-        # the merged option value must never become the new baseline.
-        addon.configure({"listen_port"})
-        assert addon.sslproxy.base == ["^config-yaml-entry:443$"]
-        assert list(tctx.options.ignore_hosts) == [
-            "^config-yaml-entry:443$", r"^.*\.example\.net(:\d+)?$",
-        ]
+        tctx.options.update(ignore_hosts=["cli-only"])
+        addon.sync_from_config_yaml(tctx.options)
+        assert list(tctx.options.ignore_hosts) == ["(?i)google"]
+        # A UI save must not be undone by a configure()/option-change hook.
+        addon.apply_ssl_proxying({"enabled": True, "exclude": ["^ui$"]})
+        assert list(tctx.options.ignore_hosts) == ["^ui$"]
 
 
-async def test_configure_without_saved_state_leaves_baseline_alone():
-    # A config that predates the feature must leave CLI --ignore-hosts
-    # values alone: only a saved dialog state is authoritative (ADR-0010).
+async def test_sync_respects_disabled_flag_without_changing_file(tmp_path, monkeypatch):
+    from mitmboard.clients import ClientRegistry
+    from mitmboard.ignorehosts import write_patterns, read_patterns
+    yml = tmp_path / "config.yaml"
+    write_patterns(yml, ["(?i)google"])
+    monkeypatch.setattr("mitmboard.ignorehosts.mitmproxy_config_path", lambda: yml)
     addon = Mitmboard()
-    addon.registry.ssl_proxying = lambda: None
+    addon.registry = ClientRegistry(tmp_path / "c.json")
+    addon.registry.set_ssl_proxying({"enabled": False})
     with taddons.context(addon) as tctx:
-        tctx.options.update(ignore_hosts=["foo"])
-        addon.configure({"listen_port"})
-        assert list(tctx.options.ignore_hosts) == ["foo"]
-        assert addon.sslproxy.base == ["foo"]
+        addon.sync_from_config_yaml(tctx.options)
+        assert list(tctx.options.ignore_hosts) == [r"^.*(:\d+)?$"]
+    assert read_patterns(yml)[0] == ["(?i)google"]
 
 
 async def test_mflow_map_evicts_with_capacity():

@@ -12,6 +12,7 @@ from .sessions import dump_session, load_session
 from .har import flows_to_har
 from .cainfo import ca_info
 from mitmboard.paths import web_dist
+from . import ignorehosts
 
 if TYPE_CHECKING:
     from .wsstore import WsStore
@@ -37,6 +38,8 @@ class MapLocalBody(BaseModel):
 class SSLProxyingBody(BaseModel):
     enabled: bool = True
     exclude: list[str] = []
+    revision: str | None = None
+    force: bool = False
 
 class ResumeBody(BaseModel):
     method: str | None = None
@@ -81,8 +84,13 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
              drop_paused: Callable[[str], dict | None] | None = None,
              maplocal_dir: Path | None = None,
              save_response_file: Callable[[str], dict | None] | None = None,
+             ignorehosts_path: Path | None = None,
              web_port: int = 8081, proxy_port: int = 8080) -> FastAPI:
     app = FastAPI(title="Mitmboard")
+    # ADR 0014: config.yaml is the single source of truth for exclusions.
+    # Tests pass a tmp path so they never touch the user's real config.
+    ignore_file = Path(ignorehosts_path) if ignorehosts_path is not None \
+        else ignorehosts.mitmproxy_config_path()
 
     @app.get("/api/flows")
     def list_flows() -> list[dict]:
@@ -171,38 +179,71 @@ def make_app(store, registry, broadcaster, replayer: Callable[[str], bool] | Non
             raise HTTPException(status_code=404, detail="not found")
         return {"ok": True}
 
+    def _read_ignorehosts() -> tuple[list[str], str]:
+        try:
+            return ignorehosts.read_patterns(ignore_file)
+        except ignorehosts.ConfigError as e:
+            raise HTTPException(status_code=503, detail=f"config.yaml unavailable: {e}")
+
     @app.get("/api/ssl-proxying")
-    def get_ssl_proxying() -> dict:
-        # No saved state yet -> the feature's neutral default: enabled with
-        # an empty list, which intercepts everything (no exclusions). The
-        # baseline (config.yaml / --ignore-hosts patterns captured at
-        # startup) comes from the addon when it is running; the UI renders
-        # it read-only.
-        data = registry.ssl_proxying() or {"enabled": True, "exclude": []}
-        base = []
+    async def get_ssl_proxying() -> dict:
+        # Re-read on every request: an external edit to config.yaml becomes
+        # visible (and live) on the next page refresh, with no proxy restart.
+        enabled = registry.ssl_proxying()["enabled"]
+        patterns, revision = _read_ignorehosts()
+        live = None
         if ssl_proxying_state is not None:
             try:
-                base = ssl_proxying_state().get("base", [])
+                live = ssl_proxying_state()
             except Exception:
-                base = []
-        return {**data, "base": base}
+                live = None
+        if live is not None and (live.get("exclude") != patterns
+                                or live.get("enabled") != enabled):
+            if ssl_proxying_apply is not None:
+                try:
+                    ssl_proxying_apply({"enabled": enabled, "exclude": patterns})
+                except Exception as e:
+                    raise HTTPException(status_code=503, detail=f"proxy unavailable: {e}")
+            await broadcaster.publish({"type": "sslproxying.update",
+                                       "enabled": enabled,
+                                       "exclude": patterns,
+                                       "revision": revision})
+        return {"enabled": enabled, "exclude": patterns, "revision": revision}
 
     @app.put("/api/ssl-proxying")
     async def put_ssl_proxying(body: SSLProxyingBody) -> dict:
+        current, server_revision = _read_ignorehosts()
+        wanted = list(body.exclude)
+        if wanted != current:
+            # D11: only a change to the ignore_hosts block is a conflict, and
+            # it is never silently resolved. `force` is the explicit
+            # "overwrite with my list" action from the dialog.
+            if not body.force and body.revision != server_revision:
+                return JSONResponse(
+                    status_code=409,
+                    content={"detail": "config.yaml changed externally",
+                             "enabled": registry.ssl_proxying()["enabled"],
+                             "exclude": current,
+                             "revision": server_revision})
+            try:
+                server_revision = ignorehosts.write_patterns(ignore_file, wanted)
+            except ignorehosts.ConfigError as e:
+                raise HTTPException(status_code=422, detail=str(e))
+            current = wanted
         try:
-            registry.set_ssl_proxying(body.model_dump())
+            registry.set_ssl_proxying({"enabled": body.enabled})
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
-        # The addon merges the saved UI list with the captured baseline and
-        # pushes it onto mitmproxy's ignore_hosts option; NextLayer
-        # recompiles, so new connections honor it immediately.
+        # Write first, then apply: a failed write must never reach the live
+        # proxy (D10). NextLayer recompiles on option change, so new
+        # connections honor the list immediately.
         if ssl_proxying_apply is not None:
             try:
-                data = ssl_proxying_apply(registry.ssl_proxying())
+                ssl_proxying_apply({"enabled": body.enabled, "exclude": current})
             except Exception as e:
                 raise HTTPException(status_code=503, detail=f"proxy unavailable: {e}")
-        else:
-            data = {**registry.ssl_proxying(), "base": []}
+        data = {"enabled": body.enabled, "exclude": current,
+                "revision": server_revision}
         await broadcaster.publish({"type": "sslproxying.update", **data})
         return data
 

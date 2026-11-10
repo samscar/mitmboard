@@ -5,6 +5,7 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 from mitmboard.paths import config_path, managed_dir
+from mitmboard import ignorehosts
 from mitmboard.managed import extension_for_content_type, store_bytes
 from mitmproxy import ctx, http
 from mitmproxy.addonmanager import Loader
@@ -60,7 +61,6 @@ class Mitmboard:
         self.registry = ClientRegistry(config_path())
         self.broadcaster = Broadcaster()
         self.sslproxy = SSLProxy()
-        self._sslproxy_started = False
         self._mflows: OrderedDict[str, HTTPFlow] = OrderedDict()
         self._mflow_cap = 5000
         self.wsstore = WsStore()
@@ -90,9 +90,27 @@ class Mitmboard:
         loader.add_option("web_host", str, "127.0.0.1", "Mitmboard web UI host")
         loader.add_option("web_open_browser", bool, True, "Open the web UI in a browser on startup")
 
+    def sync_from_config_yaml(self, options=None) -> list[str]:
+        """Make config.yaml win over CLI --ignore-hosts / --set (ADR 0014).
+
+        Called once from running(). We deliberately do NOT do this from a
+        `configure()` hook: our own options.update() triggers configure(),
+        which would immediately replay the file over the value the UI just
+        wrote. Later external edits are replayed by GET /api/ssl-proxying.
+        """
+        patterns, _ = ignorehosts.read_patterns(ignorehosts.mitmproxy_config_path())
+        self.sslproxy.apply(
+            {"enabled": self.registry.ssl_proxying()["enabled"],
+             "exclude": patterns}, options if options is not None else ctx.options)
+        return patterns
+
     async def running(self) -> None:
         import uvicorn, webbrowser
         from mitmboard.server import make_app
+        try:
+            self.sync_from_config_yaml()
+        except Exception:
+            _log.exception("mitmboard: applying ignore_hosts from config.yaml failed")
         port = ctx.options.web_port
         host = ctx.options.web_host
         proxy_port = ctx.options.listen_port or 8080
@@ -107,6 +125,7 @@ class Mitmboard:
                        drop_paused=self.drop_paused,
                        maplocal_dir=managed_dir(),
                        save_response_file=self.save_response_file,
+                       ignorehosts_path=ignorehosts.mitmproxy_config_path(),
                        web_port=port, proxy_port=proxy_port)
         # A bounded graceful shutdown keeps a stuck connection from hanging
         # `done()` forever; the hook itself also has a 2 s outer budget.
@@ -269,30 +288,12 @@ class Mitmboard:
                            extension_for_content_type(content_type))
         return {"path": str(path), "size": len(content)}
 
-    def configure(self, updated) -> None:
-        # Runs after mitmproxy has merged config.yaml and CLI flags into the
-        # options (tools/main.py loads config.yaml before the master starts),
-        # so the option value here is the untouched baseline. Snapshot it
-        # exactly once: a later configure() would otherwise capture the
-        # already-merged value (baseline + UI entries) as the baseline. Then
-        # re-apply the persisted dialog state, so its UI entries survive a
-        # restart too.
-        if not self._sslproxy_started:
-            self._sslproxy_started = True
-            self.sslproxy.capture_base(ctx.options)
-            saved = self.registry.ssl_proxying()
-            if saved is not None:
-                try:
-                    self.sslproxy.apply(saved, ctx.options)
-                except Exception:
-                    _log.exception("mitmboard: applying saved SSL Proxying settings failed")
-
     def apply_ssl_proxying(self, data: dict) -> dict:
-        """Push a freshly saved dialog state onto the live proxy.
+        """Push the freshly written config.yaml list onto the live proxy.
 
         mitmproxy's NextLayer recompiles its ignore_hosts matchers when the
         option changes, so new connections honor the list immediately.
-        Returns the full live state (baseline + UI list) for the API."""
+        Returns the full live state for the API."""
         return self.sslproxy.apply(data, ctx.options)
 
     def request(self, flow: HTTPFlow) -> None:

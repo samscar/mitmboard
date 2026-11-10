@@ -123,36 +123,26 @@ class ClientRegistry:
         cfg["map_local"] = {"enabled": bool(data.get("enabled", True)), "rules": rules}
         self._write_config(cfg)
 
-    def ssl_proxying(self) -> dict | None:
-        """Saved SSL Proxying Settings, or None while the user never saved any.
+    def ssl_proxying(self) -> dict:
+        """Only the Enable SSL Proxying flag lives in config.json now (ADR 0014).
 
-        The None case matters: without it, merely starting mitmboard with a
-        config file that predates this feature would wipe --ignore-hosts
-        values the CLI passed in. Only a saved dialog state (the key
-        exists) is authoritative over the command line."""
-        data = self._read_config().get("ssl_proxying")
+        Exclusions are owned by ~/.mitmproxy/config.yaml. A V1 `exclude` key
+        is legacy data: drop it on first read so it never lingers as state
+        nothing reads. The user re-adds those entries in the new UI.
+        """
+        cfg = self._read_config()
+        data = cfg.get("ssl_proxying")
         if not isinstance(data, dict):
-            return None
-        raw = data.get("exclude", [])
-        if not isinstance(raw, list):
-            raw = []
-        return {"enabled": bool(data.get("enabled", True)),
-                "exclude": [p for p in raw if isinstance(p, str)]}
+            return {"enabled": True}
+        enabled = bool(data.get("enabled", True))
+        if "exclude" in data:
+            cfg["ssl_proxying"] = {"enabled": enabled}
+            self._write_config(cfg)
+        return {"enabled": enabled}
 
     def set_ssl_proxying(self, data: dict) -> None:
+        """Persist only the enabled flag; never write exclusions here."""
         enabled = bool(data.get("enabled", True))
-        raw = data.get("exclude", [])
-        if not isinstance(raw, list) or any(not isinstance(p, str) for p in raw):
-            raise ValueError("exclude must be a list of strings")
-        from mitmboard.sslproxy import wildcard_to_anchored_regex
-        patterns = []
-        for p in raw:
-            # Validation lives at the config boundary (same policy as
-            # breakpoints/map_local): the engine's own conversions of such
-            # entries are unaffected, but saving an empty pattern is a
-            # mistake worth rejecting.
-            wildcard_to_anchored_regex(p)
-            patterns.append(p.strip())
         cfg = self._read_config()
-        cfg["ssl_proxying"] = {"enabled": enabled, "exclude": patterns}
+        cfg["ssl_proxying"] = {"enabled": enabled}
         self._write_config(cfg)

@@ -99,7 +99,7 @@ export function App() {
         if (e.type === "flow.update") upsert(e.flow);
         else if (e.type === "breakpoints.update") setBreakpoints({ enabled: e.enabled, rules: e.rules });
         else if (e.type === "maplocal.update") setMaplocal({ enabled: e.enabled, rules: e.rules });
-        else if (e.type === "sslproxying.update") setSslproxying({ enabled: e.enabled, exclude: e.exclude, base: e.base });
+        else if (e.type === "sslproxying.update") setSslproxying({ enabled: e.enabled, exclude: e.exclude, revision: e.revision });
         else if (e.type === "breakpoint.paused") addPaused(e.entry, e.flow);
         else if (e.type === "breakpoint.resumed" || e.type === "breakpoint.dropped" || e.type === "breakpoint.timeout") removePaused(e.flow_id);
         else if ("flow" in e) upsert(e.flow);

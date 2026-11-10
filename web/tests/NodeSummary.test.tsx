@@ -27,7 +27,8 @@ function stubApi(flows: FlowMeta[]) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url === "/api/flows") return ok(flows);
     if (url === "/api/maplocal") return ok({ enabled: true, rules: [] });
-    if (url === "/api/passthrough" || url === "/api/paused" || url === "/api/clients") return ok([]);
+    if (url === "/api/ssl-proxying") return ok({ enabled: true, exclude: [], revision: "" });
+    if (url === "/api/paused" || url === "/api/clients") return ok([]);
     if (url === "/api/breakpoints") return ok({ enabled: false, rules: [] });
     const m = url.match(/^\/api\/flows\/([^/]+)$/);
     if (m) return ok(detail(flows.find((f) => f.id === m[1]) ?? flows[0]));

@@ -45,7 +45,8 @@ function stubApi(flows: FlowMeta[], maplocal: MapLocal = { enabled: true, rules:
     }
     if (url === "/api/maplocal") return ok(maplocal);
     if (url.startsWith("/api/maplocal/files")) return ok({ path: "/managed/up.json", size: 3 });
-    if (url === "/api/passthrough" || url === "/api/paused" || url === "/api/clients") return ok([]);
+    if (url === "/api/ssl-proxying") return ok({ enabled: true, exclude: [], revision: "" });
+    if (url === "/api/paused" || url === "/api/clients") return ok([]);
     if (url === "/api/breakpoints") return ok({ enabled: false, rules: [] });
     if (url.startsWith("/api/flows/")) return ok(detail(flows[0]));
     return ok({});

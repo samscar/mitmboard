@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Internet :: Proxy Servers",
     "Topic :: Software Development :: Debuggers",
 ]
-dependencies = ["mitmproxy==12.3.1", "fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.6", "msgpack>=1.0"]
+dependencies = ["mitmproxy==12.3.1", "fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.6", "msgpack>=1.0", "ruamel.yaml>=0.18"]
 
 [project.urls]
 # This is a fork. The original project keeps the copyright; see NOTICE.

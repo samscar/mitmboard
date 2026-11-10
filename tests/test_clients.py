@@ -50,34 +50,32 @@ def test_corrupt_config_recovers_gracefully(tmp_path):
     assert r.all_labels() == {}
     assert r.label_for("1.1.1.1", "iPhone") == "iPhone"
 
-def test_ssl_proxying_default_is_none(tmp_path):
-    # None (not a default dict) is meaningful: only a saved dialog state may
-    # override CLI --ignore-hosts at startup (ADR-0010).
+def test_ssl_proxying_default_is_enabled(tmp_path):
     r = ClientRegistry(tmp_path / "config.json")
-    assert r.ssl_proxying() is None
+    assert r.ssl_proxying() == {"enabled": True}
 
-def test_ssl_proxying_roundtrip(tmp_path):
+def test_ssl_proxying_roundtrip_only_stores_enabled(tmp_path):
     r = ClientRegistry(tmp_path / "config.json")
-    r.set_ssl_proxying({"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]})
-    assert r.ssl_proxying() == {"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]}
+    r.set_ssl_proxying({"enabled": False, "exclude": ["ignored"]})
+    assert r.ssl_proxying() == {"enabled": False}
     data = json.loads((tmp_path / "config.json").read_text())
-    assert data["ssl_proxying"] == {"enabled": False, "exclude": ["*.example.com", "10.0.0.5"]}
+    assert data["ssl_proxying"] == {"enabled": False}   # exclusions live in config.yaml
 
-def test_ssl_proxying_rejects_bad_input(tmp_path):
-    r = ClientRegistry(tmp_path / "config.json")
-    with pytest.raises(ValueError):
-        r.set_ssl_proxying({"enabled": True, "exclude": ["  "]})
-    with pytest.raises(ValueError):
-        r.set_ssl_proxying({"enabled": True, "exclude": [42]})
-    with pytest.raises(ValueError):
-        r.set_ssl_proxying({"enabled": True, "exclude": "not-a-list"})
-    assert r.ssl_proxying() is None
-
-def test_ssl_proxying_tolerates_corrupt_saved_types(tmp_path):
+def test_ssl_proxying_ignores_non_bool_enabled(tmp_path):
     p = tmp_path / "config.json"
-    p.write_text('{"ssl_proxying": {"enabled": "yes", "exclude": ["ok", 7, null]}}')
+    p.write_text('{"ssl_proxying": {"enabled": "yes"}}')
+    assert ClientRegistry(p).ssl_proxying() == {"enabled": True}
+
+def test_ssl_proxying_prunes_legacy_exclude_key(tmp_path):
+    # ADR 0014: V1 data is dropped on first read, not migrated (spec D14).
+    p = tmp_path / "config.json"
+    p.write_text('{"ssl_proxying": {"enabled": false, "exclude": ["10.53.*.*"]}, "labels": {"1.1.1.1": "me"}}')
     r = ClientRegistry(p)
-    assert r.ssl_proxying() == {"enabled": True, "exclude": ["ok"]}
+    assert r.ssl_proxying() == {"enabled": False}
+    data = json.loads(p.read_text())
+    assert data["ssl_proxying"] == {"enabled": False}
+    assert data["labels"] == {"1.1.1.1": "me"}   # sibling keys survive the prune
+    assert ClientRegistry(p).ssl_proxying() == {"enabled": False}
 
 def test_set_label_preserves_other_config_keys(tmp_path):
     # set_label must be read-modify-write: it should only ever touch the
@@ -85,19 +83,19 @@ def test_set_label_preserves_other_config_keys(tmp_path):
     # ssl_proxying written by the UI or another feature.
     p = tmp_path / "config.json"
     p.write_text(json.dumps({
-        "ssl_proxying": {"enabled": True, "exclude": ["*.itunes.apple.com"]},
+        "ssl_proxying": {"enabled": True},
         "labels": {"9.9.9.9": "Old Phone"},
         "some_future_key": {"nested": True},
     }))
     r = ClientRegistry(p)
     r.set_label("1.1.1.1", "New Phone")
     data = json.loads(p.read_text())
-    assert data["ssl_proxying"] == {"enabled": True, "exclude": ["*.itunes.apple.com"]}
+    assert data["ssl_proxying"] == {"enabled": True}
     assert data["labels"] == {"9.9.9.9": "Old Phone", "1.1.1.1": "New Phone"}
     assert data["some_future_key"] == {"nested": True}
     # and a freshly-loaded registry sees the same merged state
     r2 = ClientRegistry(p)
-    assert r2.ssl_proxying()["exclude"] == ["*.itunes.apple.com"]
+    assert r2.ssl_proxying() == {"enabled": True}
     assert r2.all_labels()["1.1.1.1"] == "New Phone"
 
 def test_set_label_is_atomic_no_partial_file(tmp_path, monkeypatch):
@@ -117,12 +115,12 @@ def test_set_label_is_atomic_no_partial_file(tmp_path, monkeypatch):
 
 def test_breakpoints_config_roundtrip_preserves_keys(tmp_path):
     p = tmp_path / "c.json"
-    p.write_text('{"labels": {"1.1.1.1": "me"}, "ssl_proxying": {"enabled": true, "exclude": ["*.a"]}}')
+    p.write_text('{"labels": {"1.1.1.1": "me"}, "ssl_proxying": {"enabled": false}}')
     reg = ClientRegistry(p)
     assert reg.breakpoints() == {"enabled": True, "rules": []}
     reg.set_breakpoints({"enabled": False, "rules": [{"id": "r1", "host": "*.soum.sa", "phase": "request"}]})
     data = json.loads(p.read_text())
-    assert data["ssl_proxying"] == {"enabled": True, "exclude": ["*.a"]} and data["labels"] == {"1.1.1.1": "me"}
+    assert data["ssl_proxying"] == {"enabled": False} and data["labels"] == {"1.1.1.1": "me"}
     assert data["breakpoints"]["rules"][0]["method"] == "" and data["breakpoints"]["enabled"] is False
     with pytest.raises(ValueError): reg.set_breakpoints({"enabled": True, "rules": [{"id": "z", "phase": "x"}]})
 

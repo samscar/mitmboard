@@ -19,7 +19,7 @@ vi.mock("../src/api", async (importOriginal) => {
   return {
     ...actual,
     fetchFlows: vi.fn().mockResolvedValue([]),
-    fetchPassthrough: vi.fn().mockResolvedValue([]),
+    fetchSslProxying: vi.fn().mockResolvedValue({ enabled: true, exclude: [], revision: "" }),
     fetchWsMessages: vi.fn().mockResolvedValue({ messages: [{ i: 0, t: 1, dir: "in", type: "text", size: 1, text: "x", view: null, pretty: null }], total: 1 }),
   };
 });
