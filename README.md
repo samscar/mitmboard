@@ -93,6 +93,7 @@ The commercial inspectors are excellent tools, and if you need map-local or scri
 - **Live capture** of HTTP/HTTPS flows, streamed to the browser over WebSocket.
 - **WebSocket frames** — each connection is a live row; the Messages tab streams frames with direction, size, and JSON/MsgPack/Protobuf previews.
 - **Breakpoints** — pause matching requests or responses, edit headers, body, status, then continue or drop; rules live in the Breakpoints dialog and `~/.mitmboard/config.json`; a paused flow auto-continues after 60 s and nothing pauses while no UI is connected.
+- **SSL Proxying exclude** — add hosts under Proxy → SSL Proxying Settings → Exclude to forward them encrypted and untouched; excluded connections produce no flow. The list lives in `~/.mitmproxy/config.yaml` (`ignore_hosts`) and is written back on every edit, so external edits take effect on refresh. This is a manual list, not auto-detection of pinned certificates.
 - **Per‑device grouping** — clients are auto‑named from the User‑Agent (iPhone, Android app, Mac…) with per‑device request counts; rename any device inline.
 - **Filter DSL** — `status:>=400 host:*.example.com path:/v2/*`, plus `type:ws` for WebSocket flows, with autocomplete, quick method chips (All/GET/POST/4xx/5xx), an "Errors only" toggle, and saved filters.
 - **Rich response viewer** — collapsible syntax‑highlighted JSON, HTML/XML highlighting with a rendered Preview, line numbers, content‑type badge, and an error banner for 4xx/5xx — and decoded views for Protobuf/gRPC (schema-less), MsgPack, multipart and form bodies; request bodies shown alongside responses.
@@ -107,7 +108,7 @@ The commercial inspectors are excellent tools, and if you need map-local or scri
 
 <p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/architecture.gif" alt="Animated: a request pulses from a client through mitmproxy (which decrypts on port 8080) into the Mitmboard addon, then FastAPI on 8081, and the response streams back to the React web UI." width="860"></p>
 
-- **`mitmboard/`** — the mitmproxy addon (`addon.py`), flow model + store, client/device registry, the FastAPI server (`server.py`), and helpers: TLS passthrough for pinned hosts (`passthrough.py`), breakpoints (`breakpoints.py`), WebSocket frames (`wsstore.py`), body decoders (`decode.py`), HAR, sessions, CA info, transform.
+- **`mitmboard/`** — the mitmproxy addon (`addon.py`), flow model + store, client/device registry, the FastAPI server (`server.py`), and helpers: SSL Proxying exclude (`sslproxy.py`), breakpoints (`breakpoints.py`), WebSocket frames (`wsstore.py`), body decoders (`decode.py`), HAR, sessions, CA info, transform.
 - **`web/`** — the Vite + React + TypeScript UI (Zustand store, filter DSL, JSON viewer, etc.).
 
 See [`docs/architecture.md`](https://github.com/samscar/mitmboard/blob/main/docs/architecture.md) for a deeper tour.
@@ -127,9 +128,7 @@ See [`docs/architecture.md`](https://github.com/samscar/mitmboard/blob/main/docs
    - Open **http://mitm.it** on the device (through the proxy) and install the cert.
    - **iOS also needs:** Settings → General → About → **Certificate Trust Settings** → enable full trust. *(This step is easy to miss and is the usual cause of "no requests show up".)*
 
-Some apps pin certificates (Instagram, Facebook, the iOS App Store/iCloud) and will refuse the proxy's cert every time — without this, they'd simply stop working while the phone is proxied. After two refusals Mitmboard passes that host through encrypted so the app keeps working, and lists it under **Passthrough** in the sidebar.
-
-<p align="center"><img src="https://raw.githubusercontent.com/samscar/mitmboard/main/docs/media/passthrough.gif" alt="Animated: two refused handshakes at mitmproxy, then the pinned host is forwarded encrypted straight through." width="720"></p> You can retry decryption for a host from there once it stops pinning, or pre‑list known hosts under `"passthrough_hosts"` in `~/.mitmboard/config.json` to skip the two failed attempts.
+Some apps pin certificates (Instagram, Facebook, the iOS App Store/iCloud) and will refuse the proxy's cert every time — without this, they'd simply stop working while the phone is proxied. Mitmboard does not auto-detect them: open **Proxy → SSL Proxying Settings → Exclude** and add the host manually. Excluded connections are forwarded encrypted and untouched, and produce no flow in the list.
 
 ---
 
@@ -141,7 +140,7 @@ Mitmboard also captures traffic from the machine it runs on — a browser, a scr
 - **Windows:** Settings → Network → Proxy → Manual, `127.0.0.1:8080`. Import the CA into **Trusted Root Certification Authorities**.
 - **Linux / a single tool:** set `HTTP_PROXY`/`HTTPS_PROXY` to `http://127.0.0.1:8080` for that process, and point it at the CA (many tools honour `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE`).
 
-Turn the system proxy back **off** when Mitmboard isn't running, or the machine loses internet. Apple's own system services and cert‑pinned desktop apps won't decrypt — passthrough handles those the same way it does on a phone.
+Turn the system proxy back **off** when Mitmboard isn't running, or the machine loses internet. Apple's own system services and cert‑pinned desktop apps won't decrypt — add them to **Proxy → SSL Proxying Settings → Exclude** the same way you would on a phone.
 
 ---
 

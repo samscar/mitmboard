@@ -13,7 +13,7 @@
 | `--set`、`-q`、`-v` | 透传，可用 | 各设置面板 |
 | `-s/--scripts` | 透传；Mitmboard 自己的 addon 始终追加，用户脚本保留 | Tools → Map Local / Rewrite / Breakpoints（脚本是 mitmproxy 独有能力） |
 | `-r/--rfile`、`-w/--save-stream-file` | 透传，可用 | File → Save / Export Session |
-| `-f`（filter）、`--ignore-hosts`、`--allow-hosts` | 透传，可用；config.yaml / CLI 的 ignore_hosts 作为基线捕获，UI 的 exclude 名单与其合并生效（UI 删除不影响基线） | Proxy → SSL Proxying Settings → Exclude 列表（include 列表 UI 未实现，置灰占位） |
+| `-f`（filter）、`--ignore-hosts`、`--allow-hosts` | 透传，可用；但 `--ignore-hosts` / `--set` 注入值在启动时被 `~/.mitmproxy/config.yaml` 的 `ignore_hosts` 覆盖（ADR 0014：该文件是排除的唯一真相来源） | Proxy → SSL Proxying Settings → Exclude 列表（include 列表 UI 未实现，置灰占位） |
 | `--ssl-insecure`、`--upstream-cert`、`--no-server` | 透传，可用 | Proxy Settings → SSL |
 | `--anticache`、`--anticomp`、`--showhost`、`--stickycookie`、`--stickyauth` | 透传，可用 | Tools → Rewrite / No Caching |
 | `--options`、`--commands` | 透传，可用 | 无对应 |
@@ -36,6 +36,7 @@
 - 无密码前提下 `--web-host` 允许绑定任意地址，绑非 loopback 时启动日志警告：UI 无鉴权，能访问到的人可以改规则。
 - 优先级：专用参数 > `--set` > 环境变量 > 默认值。专用参数与 `--set` 冲突时以专用参数为准，并打印一行提示。
 - `--set web_password` 仍不支持（单人使用，见 ADR 0005 之后的范围收敛），保留在 T3。
+- **`--ignore-hosts` 的优先级**：上表为现行行为。[ADR 0014](adr/0014-ignore-hosts-as-source-of-truth.md) 已把 `~/.mitmproxy/config.yaml` 的 `ignore_hosts` 定为唯一真相来源，UI 逐操作写回该文件、刷新时重读并回放运行时，CLI 注入值被文件内容覆盖；实现见 `scratch/ignore-hosts-sync/spec.md`。
 
 ## 复现方式
 

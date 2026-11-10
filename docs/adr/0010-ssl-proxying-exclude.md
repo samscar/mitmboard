@@ -2,6 +2,8 @@
 
 **Status**: accepted
 
+> **2026-11-09 更正**：本 ADR 记录 V1 的功能引入。真相来源、条目形态、持久化与 CLI 优先级已由 [ADR 0014](./0014-ignore-hosts-as-source-of-truth.md) 重新裁定；下文 §3–§5 与 Post-acceptance notes 属历史决策，勿作为当前实现依据。
+
 ## Context
 
 用户在测试中需要把一些关键 host 排除在 TLS 拦截之外，确保不被中间人解密干扰（证书校验、证书固定场景下 App 会拒绝连接）。这对应 Charles 的 **Proxy → SSL Proxying Settings** 对话框及其 Exclude 列表。
@@ -22,6 +24,7 @@ Mitmboard 现状是自创的 **passthrough 子系统**：当同一 host 在 60 �
 3. **条目语法**：Charles 风格通配符（`*` → `.*`，`?` → `.`，其余字符转义），转换成**完全锚定**的 regex（`^…$`）驱动 `ignore_hosts`；不带通配符的条目即精确匹配。锚定避免 `example.com` 误伤 `notexample.com` 这类 search 语义陷阱。
 4. **条目只含 host、不带端口**——有意偏离 Charles（其条目形如 `*.example.com:443`）：`ignore_hosts` 仅匹配 host，端口字段会误导用户以为端口参与匹配。
 5. **生效与持久化**：UI 保存即经 API 热更新 addon 并广播；与 `web_port` 等设置同策略，**UI 保存覆盖 CLI `--ignore-hosts`**。持久化到 `~/.mitmboard/config.json` 的 `ssl_proxying` key（`{"enabled": bool, "exclude": [...]}`），沿用 `breakpoints` / `map_local` 的读改写模式。
+   - **2026-11-09 更正**：此句与下方 Post-acceptance notes 的语义修订相矛盾；出货实现为「基线合并、基线不被覆盖」。两者现均由 ADR 0014 取代。
 6. **直通流量不可见**：被 exclude 的连接在 proxyserver 层直接放行、不产生 flow，flow 列表看不到任何记录，**名单是唯一真相来源**——有意偏离 Charles（被排除 SSL 代理的 host 仍以 `<encrypted>` 记录出现）。
 
 ## Considered Options
@@ -42,3 +45,4 @@ Mitmboard 现状是自创的 **passthrough 子系统**：当同一 host 在 60 �
 - mitmproxy 的 `ignore_hosts` 以 `re.search` + 自带 `re.IGNORECASE` 匹配 **`host:port`** 串（`mitmproxy/addons/next_layer.py`），故通配符转换的锚定形式为 `^host(:\d+)?$`——纯 `^host$` 永远匹配不到任何真实候选。
 - 热更新零成本：`NextLayer.configure` 在 option 变更时重编译 matcher，UI 保存只需更新 option。
 - **语义修订（用户确认）**：`ignore_hosts` 是双层结构——启动时从 `~/.mitmproxy/config.yaml` / CLI `--ignore-hosts` 原样捕获一份**基线**（本机已有 6 条手工规则：Apple 服务、loopback、内网 IP 等，捕获发生在 addon configure 时，此时 config.yaml 已由 mitmproxy 合并完毕）；UI 名单（config.json 的 `ssl_proxying.exclude`）是其增量维护层。UI 保存时 option = 基线 ∪ 转换后的 UI 条目（去重），新增即同步进全局 ignore_hosts，删除只删 UI 条目，基线永远不被覆盖——UI 是全局名单的维护面，基线仍在各自文件中管理。Enable SSL Proxying 关闭时基线也一并失效（全部 TLS 连接按密文原样转发）。API 响应携带 `base` 字段，UI 以只读段落展示。
+  - **2026-11-09 更正**：此处的双层结构与只读段落已由 ADR 0014 废除；另「本机 6 条手工规则」与当前 `~/.mitmproxy/config.yaml` 的 5 条不符，属当时现场记录，不是配置事实。

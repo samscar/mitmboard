@@ -55,8 +55,12 @@ _Avoid_: 拦截、intercept、hook
 _Avoid_: HTTPS 拦截、SSL 转发
 
 **排除（exclude）**：
-在 SSL Proxying Settings 中列出的 host 通配符名单；命中条目的连接不做 TLS 拦截、按密文原样转发，也不出现在流列表，名单是唯一真相来源。
-_Avoid_: 忽略名单、白名单、bypass、直通
+mitmproxy `ignore_hosts` 配置中的一条原始 regex，按目标 host:port 匹配；命中条目的连接不做 TLS 拦截、按密文原样转发，也不出现在流列表。该配置是排除的唯一真相来源，界面中的名单只是它的编辑视图；它与设备标识（来源 IP）无关。
+_Avoid_: 忽略名单、白名单、bypass、直通、通配符名单、基线
+
+**通配符速记**：
+输入排除时使用的 `10.53.*.*` 式简写；它不是排除的存储形态，使用前须展开为一条等价的原始 regex。
+_Avoid_: glob、通配符规则、pattern
 
 **证书固定（pinned host）**：
 只信任特定证书、因而无法被中间人解密的主机。

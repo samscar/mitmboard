@@ -17,9 +17,11 @@ Mitmboard runs as a standard mitmproxy addon loaded by `mitmdump`. mitmproxy ter
 
 `cli.py` translates Mitmboard's mitmweb-compatible web flags (`--web-port`, `--web-host`, `--web-open-browser`) into `mitmdump` argv and always loads the addon. Proxy and traffic flags are mitmproxy's own and pass through untouched. `paths.py` resolves the built UI and the addon across dev, PyPI wheel, and frozen (PyInstaller) layouts.
 
-### TLS passthrough for pinned hosts (`passthrough.py`)
+### 排除（SSL Proxying Settings，`sslproxy.py` + `ignorehosts.py`）
 
-Cert‑pinned apps drop the handshake rather than trust the proxy's cert. The `tls_failed_client` hook feeds a `PassthroughRegistry` that counts failures per SNI host; after two within a minute the host flips to passthrough. The `tls_clienthello` hook then sets `ignore_connection` for that host, so mitmproxy forwards it encrypted and untouched — the app keeps working, no HTTP flow is produced, and the host is surfaced via `passthrough.update`. Known hosts can be pre‑listed under `"passthrough_hosts"` in `~/.mitmboard/config.json`.
+`~/.mitmproxy/config.yaml` 的 `ignore_hosts` 是排除的唯一真相来源（[ADR 0014](adr/0014-ignore-hosts-as-source-of-truth.md)）。`ignorehosts.py` 用 `ruamel.yaml` 的 round-trip 模式读写该块，保留注释、其它键与引号风格，并以 `mkstemp` + `os.replace` 原子替换；首次写入前生成 `.bak`。`SSLProxy.apply()` 把文件里的**原始 regex**直接推到 `ctx.options.ignore_hosts`（`NextLayer` 在 option 变更时重编译，新连接立即生效，已建立的隧道保留旧决定）。
+
+写盘由 UI 的每一次增删改即时触发；`GET /api/ssl-proxying` 每次重读文件，与运行时状态不一致时回放并广播 `sslproxying.update`，因此外部手工编辑在刷新页面后生效、无需重启。响应与广播携带 `ignore_hosts` 块内容的 `revision`，检测到外部改动时返回 409，由界面显式选择「以文件为准重载」或「以我的列表覆盖」，永不静默覆盖。**Enable SSL Proxying** 关闭时运行时置全匹配但**不改文件**；该开关状态存在 `~/.mitmboard/config.json` 的 `ssl_proxying.enabled`。CLI `--ignore-hosts` / `--set` 注入值在启动时由 `running()` 中的 `sync_from_config_yaml()` 覆盖。
 
 ### Breakpoints (`breakpoints.py`)
 
@@ -35,7 +37,7 @@ The `websocket_start` / `websocket_message` / `websocket_end` hooks mark the flo
 
 ### Device detection (`clients.py`)
 
-`ClientRegistry.device_for(ip, user_agent)` returns a `(label, kind)` pair and remembers the first device *kind* seen per IP, recognising browsers and native app HTTP stacks (`CFNetwork`/`Darwin` → iOS app, `okhttp`/`Dalvik` → Android app). Labels, passthrough hosts, and breakpoint rules are persisted atomically to `~/.mitmboard/config.json` with a read‑modify‑write that preserves the other keys.
+`ClientRegistry.device_for(ip, user_agent)` returns a `(label, kind)` pair and remembers the first device *kind* seen per IP, recognising browsers and native app HTTP stacks (`CFNetwork`/`Darwin` → iOS app, `okhttp`/`Dalvik` → Android app). Labels, SSL Proxying settings, and breakpoint rules are persisted atomically to `~/.mitmboard/config.json` with a read‑modify‑write that preserves the other keys.
 
 ## 2. API — the FastAPI backend (`mitmboard/server.py`)
 
@@ -49,7 +51,7 @@ The `websocket_start` / `websocket_message` / `websocket_end` hooks mark the flo
 | DELETE | `/api/flows`                      | clear the store                             |
 | GET/PUT | `/api/clients` · `/api/clients/{ip}` | per‑device counts + kind · rename       |
 | POST   | `/api/flows/{id}/replay` · `/replay-edited` | replay, or replay with edits       |
-| GET/DELETE | `/api/passthrough` · `/api/passthrough/{host}` | passed‑through hosts · retry decrypt |
+| GET/PUT | `/api/ssl-proxying`               | enable flag · raw regex list · block revision |
 | GET/PUT | `/api/breakpoints`               | breakpoint rules + enabled toggle           |
 | GET    | `/api/paused`                     | currently paused flows (with a snapshot)    |
 | POST   | `/api/paused/{id}/resume` · `/drop` | continue (with optional edits) · drop     |
@@ -60,15 +62,15 @@ The `websocket_start` / `websocket_message` / `websocket_end` hooks mark the flo
 
 The built web UI (`web/dist`) is mounted at `/` when present. Endpoints that publish (resume, drop, clear) are `async def` so they run on mitmproxy's own asyncio loop — the addon and API share one event loop and one store, so a publish from an HTTP handler reaches the same broadcaster.
 
-**WebSocket events:** `flow.new` / `flow.complete` / `flow.error` / `flow.update`, `ws.message`, `passthrough.update`, and `breakpoint.paused` / `resumed` / `dropped` / `timeout` / `breakpoints.update`.
+**WebSocket events:** `flow.new` / `flow.complete` / `flow.error` / `flow.update`, `ws.message`, `sslproxying.update`, and `breakpoint.paused` / `resumed` / `dropped` / `timeout` / `breakpoints.update`.
 
 ## 3. UI — the React app (`web/`)
 
-- **State:** a Zustand store (`store.ts`) holds the flow map, selection, active filter/client, and the passthrough / breakpoints / paused / WebSocket‑frame collections. `visibleFlows()` applies the parsed filter + client selection.
-- **Live updates:** the WebSocket client in `App.tsx` auto‑reconnects and calls `resync()` (flows, passthrough, breakpoints, paused, and the selected ws flow's frames) on reconnect.
+- **State:** a Zustand store (`store.ts`) holds the flow map, selection, active filter/client, and the ssl-proxying / breakpoints / paused / WebSocket‑frame collections. `visibleFlows()` applies the parsed filter + client selection.
+- **Live updates:** the WebSocket client in `App.tsx` auto‑reconnects and calls `resync()` (flows, ssl-proxying, breakpoints, paused, and the selected ws flow's frames) on reconnect.
 - **Filter DSL:** `filters/dsl.ts` parses queries like `status:>=400 host:*.soum.sa path:/v2/*` (plus `type:ws`) into a predicate; `filters/suggest.ts` powers autocomplete.
 - **Viewers:** `JsonView` renders a collapsible, syntax‑highlighted tree plus a line‑numbered raw view, a format badge for decoded bodies, and a sandboxed Preview iframe; `WsMessages` streams WebSocket frames; `Timing` draws the per‑phase waterfall.
-- **Components** map to UI regions: `TopBar`, `FilterBar`, `ClientsSidebar`, `FlowTable`, `DetailPane`, `StatusBar`, the `Devices` and `Dashboard` views, and modals (`ConnectDeviceModal`, `ReplayModal`, `Settings`, `BreakpointsModal`); paused flows edit inline via `PausedEditor` (sharing `HeaderRowsEditor` with `ReplayModal`).
+- **Components** map to UI regions: `TopBar`, `FilterBar`, `ClientsSidebar`, `FlowTable`, `DetailPane`, `StatusBar`, the `Devices` and `Dashboard` views, and modals (`ConnectDeviceModal`, `ReplayModal`, `Settings`, `BreakpointsModal`, `SSLProxyingModal`); paused flows edit inline via `PausedEditor` (sharing `HeaderRowsEditor` with `ReplayModal`).
 
 ## Data model (`mitmboard/models.py`)
 
@@ -120,20 +122,21 @@ The app opens `wss://gateway.example.com/socket`.
 
    A throttled `flow.update` (≤ 4/s) keeps the row's frame count fresh. `websocket_end` publishes a final `flow.update` with the close code. The Messages tab loads history from `GET /api/flows/c3d4/ws?after=N` and appends live frames, merging by index so nothing is lost across a reconnect.
 
-### 3. A pinned host (passthrough)
+### 3. An excluded host (SSL Proxying Settings)
 
-<p align="center"><img src="media/passthrough.gif" alt="Two refused handshakes, then the host is forwarded encrypted." width="640"></p>
+Instagram refuses the proxy's certificate, so the user enters `*.instagram.com` under **Proxy → SSL Proxying Settings → Exclude**.
 
-Instagram refuses the proxy's certificate.
-
-1. `tls_failed_client` fires. `PassthroughRegistry.record_failure("i.instagram.com", …)` counts it and publishes the current set with the host `"active": false` — it is **watching**, still intercepted while the count builds:
+1. The dialog expands the shorthand to `^.*\.instagram\.com(:\d+)?$` and writes the full list to `config.yaml` immediately. The API then calls `options.update(ignore_hosts=[...])`; `NextLayer` recompiles its matchers and the state is broadcast:
 
    ```json
-   { "type": "passthrough.update", "hosts": [
-       { "host": "i.instagram.com", "source": "auto", "active": false, "failures": 1, "clients": ["192.168.1.29"] } ] }
+   { "type": "sslproxying.update", "enabled": true,
+     "exclude": ["(?i)google", "^.*\\.instagram\\.com(:\\d+)?$"],
+     "revision": "8f2408530b7d4935" }
    ```
 
-2. On the second failure within a minute the host flips to `"active": true`. From then on `tls_clienthello` sets `ignore_connection`, so mitmproxy forwards that host encrypted and untouched — the app works, **no HTTP flow is produced for it**, and it's listed under Passthrough. `DELETE /api/passthrough/i.instagram.com` retries decryption; a config‑listed host is active from the first hello and skips the two failures.
+2. The next connection whose target `host:port` matches is forwarded encrypted and untouched at the proxyserver layer — **no HTTP flow is produced**, so nothing appears in the list. Already-established tunnels keep their earlier decision. Turning **Enable SSL Proxying** off sets `ignore_hosts` to a single match-all pattern without touching `config.yaml`.
+
+3. If the file is edited externally, the next `GET /api/ssl-proxying` detects the new `revision`, replays it onto the running proxy and broadcasts — no restart. A concurrent UI write instead receives 409 and asks which side wins.
 
 ### 4. A breakpoint (pause → edit → continue)
 

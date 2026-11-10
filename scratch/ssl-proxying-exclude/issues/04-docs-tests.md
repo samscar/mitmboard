@@ -31,3 +31,9 @@ cli-parity.md 已更新；README 无 passthrough/SSL 相关清单，无需改动
 ## Comments (2) — 语义修订：基线合并（2026-11-08）
 
 用户裁定 D5 由「UI 覆盖」改为「**基线合并**」：启动时（addon configure，此时 mitmproxy 已合并 config.yaml）原样捕获 `ignore_hosts` 为基线（本机 6 条手工规则，Apple 服务等）；UI 名单为增量维护层，保存时 option = 基线 ∪ 转换后的 UI 条目（去重），UI 删除只删 UI 条目，基线永远不被覆盖；Enable SSL Proxying 关闭时基线一并失效。API 响应携带 `base` 字段，对话框以只读段落展示基线（标注"edit those files to change"）。实现：`SSLProxy.capture_base()`（一次性，防后续 configure 把合并值误当基线）+ `apply()` 合并去重；冒烟实测 GET 返回 6 条基线、PUT 后 option = 6 + 1、config.json 仅存 UI 条目。后端 pytest 199 passed；前端 tsc + vitest 34 文件全绿；bundle 已重建并 stage。冒烟写入 config.json 的测试条目已清除。
+
+## Comments (3) — 2026-11-09 复核更正
+
+- 上文引用的日志字符串 `SSL Proxying exclude list replaces the ignore_hosts values from the command line (6 pattern(s) -> 2)` 在仓库代码与运行环境中均不存在，属当时的误记。
+- 「README 无 passthrough/SSL 相关清单，无需改动」与事实不符：README 与 `docs/architecture.md` 仍描述已删除的 `passthrough.py` / `passthrough_hosts` / `/api/passthrough`。已在 2026-11-09 文档批次中定点修正。
+- 本票的验收结论仅对 V1 有效；真相来源反转见 [ADR 0014](../../../docs/adr/0014-ignore-hosts-as-source-of-truth.md) 与 `../../ignore-hosts-sync/spec.md`。
